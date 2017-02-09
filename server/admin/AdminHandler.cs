@@ -28,7 +28,7 @@ namespace Maps.Admin
         public void ProcessRequest(HttpContext context)
         {
             if (context == null)
-                throw new ArgumentNullException("context");
+                throw new ArgumentNullException(nameof(context));
 
             context.Response.Cache.SetCacheability(HttpCacheability.NoCache);
             if (!AdminAuthorized(context))
@@ -120,7 +120,7 @@ namespace Maps.Admin
             Write(response, name + ": " + value.ToString());
         }
 
-        private void Profile(HttpContext context)
+        private static void Profile(HttpContext context)
         {
             WriteStat(context.Response, "Cache.Count", context.Cache.Count);
             WriteStat(context.Response, "Cache.EffectivePercentagePhysicalMemoryLimit", context.Cache.EffectivePercentagePhysicalMemoryLimit);
@@ -152,14 +152,14 @@ namespace Maps.Admin
             {
                 foreach (string table in new string[] { "sectors", "subsectors", "worlds", "labels" })
                 {
-                    string sql = string.Format("SELECT COUNT(*) FROM {0}", table);
+                    string sql = $"SELECT COUNT(*) FROM {table}";
                     using (var command = new SqlCommand(sql, connection))
                     {
                         using (var reader = command.ExecuteReader())
                         {
                             while (reader.Read())
                             {
-                                Write(context.Response, string.Format("{0}: {1}", table, reader.GetInt32(0)));
+                                Write(context.Response, $"{table}: {reader.GetInt32(0)}");
                             }
                         }
                     }

@@ -19,20 +19,20 @@ namespace Maps.API
             public override string DefaultContentType { get { return System.Net.Mime.MediaTypeNames.Text.Xml; } }
             public override void Process()
             {
-                ResourceManager resourceManager = new ResourceManager(context.Server);
+                ResourceManager resourceManager = new ResourceManager(Context.Server);
 
                 // NOTE: This (re)initializes a static data structure used for 
                 // resolving names into sector locations, so needs to be run
                 // before any other objects (e.g. Worlds) are loaded.
                 SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
-                Location loc = new Location(map.FromName("Spinward Marches").Location, 1910);
+                Location loc = Location.Empty;
 
                 if (HasOption("sector"))
                 {
                     string sectorName = GetStringOption("sector");
                     Sector sec = map.FromName(sectorName);
                     if (sec == null)
-                        throw new HttpError(404, "Not Found", string.Format("The specified sector '{0}' was not found.", sectorName));
+                        throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
 
                     int hex = GetIntOption("hex", Astrometrics.SectorCentralHex);
                     loc = new Location(sec.Location, hex);
@@ -78,7 +78,7 @@ namespace Maps.API
                     data.SectorPublisher = sector.Publisher;
                     data.SectorCopyright = sector.Copyright;
                     data.SectorRef = sector.Ref;
-                    data.SectorEra = sector.Era;
+                    data.SectorMilieu = sector.CanonicalMilieu;
 
                     if (sector.DataFile != null)
                     {
@@ -87,7 +87,7 @@ namespace Maps.API
                         data.SectorPublisher = sector.DataFile.Publisher ?? data.SectorPublisher;
                         data.SectorCopyright = sector.DataFile.Copyright ?? data.SectorCopyright;
                         data.SectorRef = sector.DataFile.Ref ?? data.SectorRef;
-                        data.SectorEra = sector.DataFile.Era ?? data.SectorEra;
+                        data.SectorMilieu = sector.CanonicalMilieu;
                     }
 
                     //
@@ -130,7 +130,7 @@ namespace Maps.API
                     }
                 }
 
-                SendResult(context, data);
+                SendResult(Context, data);
             }
         }
     }
@@ -150,7 +150,7 @@ namespace Maps.API.Results
         public string SectorPublisher { get; set; }
         public string SectorCopyright { get; set; }
         public string SectorRef { get; set; }
-        public string SectorEra { get; set; }
+        public string SectorMilieu { get; set; }
         public string SectorTags { get; set; }
 
         public string RouteCredits { get; set; }

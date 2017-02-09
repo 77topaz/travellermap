@@ -24,7 +24,7 @@ namespace Maps.API
             public Responder(HttpContext context) : base(context) { }
             public override void Process()
             {
-                ResourceManager resourceManager = new ResourceManager(context.Server);
+                ResourceManager resourceManager = new ResourceManager(Context.Server);
 
                 MapOptions options = MapOptions.SectorGrid | MapOptions.BordersMajor | MapOptions.NamesMajor | MapOptions.NamesMinor;
                 Stylesheet.Style style = Stylesheet.Style.Poster;
@@ -33,8 +33,20 @@ namespace Maps.API
                 double x = GetDoubleOption("x", 0);
                 double y = GetDoubleOption("y", 0);
                 double scale = Util.Clamp(GetDoubleOption("scale", 0), MinScale, MaxScale);
-                int width = Util.Clamp(GetIntOption("w", NormalTileWidth), MinDimension, MaxDimension);
-                int height = Util.Clamp(GetIntOption("h", NormalTileHeight), MinDimension, MaxDimension);
+
+                int width = GetIntOption("w", NormalTileWidth);
+                int height = GetIntOption("h", NormalTileHeight);
+                if (width < 0 || height < 1)
+                {
+                    throw new HttpError(400, "Bad Request",
+                          $"Requested dimensions ({width}x{height}) invalid.");
+                }
+                if (width * height > MaxDimension * MaxDimension)
+                {
+                    throw new HttpError(400, "Bad Request",
+                         $"Requested dimensions ({width}x{height}) too large.");
+                }
+
 
                 Size tileSize = new Size(width, height);
 
@@ -53,7 +65,7 @@ namespace Maps.API
                 RenderContext ctx = new RenderContext(resourceManager, selector, tileRect, scale, options, styles, tileSize);
                 ctx.Silly = silly;
                 ctx.ClipOutsectorBorders = true;
-                ProduceResponse(context, "Tile", ctx, tileSize);
+                ProduceResponse(Context, "Tile", ctx, tileSize);
             }
         }
     }

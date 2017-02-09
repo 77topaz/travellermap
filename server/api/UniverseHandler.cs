@@ -24,7 +24,7 @@ namespace Maps.API
             public override string DefaultContentType { get { return System.Net.Mime.MediaTypeNames.Text.Xml; } }
             public override void Process()
             {
-                ResourceManager resourceManager = new ResourceManager(context.Server);
+                ResourceManager resourceManager = new ResourceManager(Context.Server);
 
                 // NOTE: This (re)initializes a static data structure used for 
                 // resolving names into sector locations, so needs to be run
@@ -42,7 +42,10 @@ namespace Maps.API
                     if (requireData && sector.DataFile == null)
                         continue;
 
-                    if (milieu != null && sector.DataFile?.Era != milieu)
+                    if (sector.Tags.Contains("meta") && !(tags?.Contains("meta") ?? false))
+                        continue;
+
+                    if (milieu != null && sector.CanonicalMilieu != milieu)
                         continue;
 
                     if (tags != null && !tags.Any(tag => sector.Tags.Contains(tag)))
@@ -50,8 +53,7 @@ namespace Maps.API
 
                     data.Sectors.Add(new UniverseResult.SectorResult(sector));
                 }
-
-                SendResult(context, data);
+                SendResult(Context, data);
             }
         }
     }
@@ -66,8 +68,7 @@ namespace Maps.API.Results
         public UniverseResult() { }
 
         [XmlElement("Sector")]
-        public List<SectorResult> Sectors { get { return sectors; } }
-        private List<SectorResult> sectors = new List<SectorResult>();
+        public List<SectorResult> Sectors { get; } = new List<SectorResult>();
 
         [XmlRoot("Sector")]
         public class SectorResult
@@ -79,6 +80,7 @@ namespace Maps.API.Results
 
             public int X { get { return sector.X; } set { } }
             public int Y { get { return sector.Y; } set { } }
+            public string Milieu { get { return sector.CanonicalMilieu; } set { } }
 
             [XmlAttribute]
             public string Abbreviation { get { return sector.Abbreviation; } set { } }

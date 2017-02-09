@@ -1,5 +1,6 @@
 using Json;
 using Maps.Rendering;
+using Maps.Serialization;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -17,13 +18,12 @@ namespace Maps
     {
         public Sector()
         {
-            Names = new List<Name>();
         }
 
         internal Sector(Stream stream, string mediaType, ErrorLogger errors)
             : this()
         {
-            WorldCollection wc = new WorldCollection();
+            WorldCollection wc = new WorldCollection(isUserData: true);
             wc.Deserialize(stream, mediaType, errors);
             foreach (World world in wc)
                 world.Sector = this;
@@ -33,6 +33,15 @@ namespace Maps
         public int X { get { return Location.X; } set { Location = new Point(value, Location.Y); } }
         public int Y { get { return Location.Y; } set { Location = new Point(Location.X, value); } }
         public Point Location { get; set; }
+
+        // TODO: Better name for this, possibly just by cleaning up the data.
+        public string CanonicalMilieu
+        {
+            get
+            {
+                return DataFile?.Milieu ?? Milieu ?? SectorMap.DEFAULT_MILIEU;
+            }
+        }
 
         [XmlAttribute]
         public string Abbreviation {
@@ -61,7 +70,7 @@ namespace Maps
         public string Label { get; set; }
 
         [XmlElement("Name")]
-        public List<Name> Names { get; }
+        public List<Name> Names { get; } = new List<Name>();
 
         public string Domain { get; set; }
 
@@ -70,41 +79,38 @@ namespace Maps
         public string GammaQuadrant { get; set; }
         public string DeltaQuadrant { get; set; }
 
-        private MetadataCollection<Subsector> subsectors = new MetadataCollection<Subsector>();
-        private MetadataCollection<Route> routes = new MetadataCollection<Route>();
-        private MetadataCollection<Label> labels = new MetadataCollection<Label>();
-        private MetadataCollection<Border> borders = new MetadataCollection<Border>();
-        private MetadataCollection<Allegiance> allegiances = new MetadataCollection<Allegiance>();
-        private MetadataCollection<Product> products = new MetadataCollection<Product>();
 
         [XmlAttribute]
         [DefaultValue(false)]
         public bool Selected { get; set; }
 
         [XmlElement("Product")]
-        public MetadataCollection<Product> Products { get { return products; } }
+        public MetadataCollection<Product> Products { get; private set; } = new MetadataCollection<Product>();
 
-        public MetadataCollection<Subsector> Subsectors { get { return subsectors; } }
-        public MetadataCollection<Border> Borders { get { return borders; } }
-        public MetadataCollection<Label> Labels { get { return labels; } }
-        public MetadataCollection<Route> Routes { get { return routes; } }
-        public MetadataCollection<Allegiance> Allegiances { get { return allegiances; } }
+        public MetadataCollection<Subsector> Subsectors { get; private set; } = new MetadataCollection<Subsector>();
+        public MetadataCollection<Border> Borders { get; private set; } = new MetadataCollection<Border>();
+        public MetadataCollection<Label> Labels { get; private set; } = new MetadataCollection<Label>();
+        public MetadataCollection<Route> Routes { get; private set; } = new MetadataCollection<Route>();
+        public MetadataCollection<Allegiance> Allegiances { get; private set; } = new MetadataCollection<Allegiance>();
 
         public string Credits { get; set; }
 
         public void Merge(Sector metadataSource)
         {
             if (metadataSource == null)
-                throw new ArgumentNullException("metadataSource");
+                throw new ArgumentNullException(nameof(metadataSource));
 
             // TODO: This is very fragile; if a new type is added to Sector we need to add more code here.
 
             if (metadataSource.Names.Any()) { Names.Clear(); Names.AddRange(metadataSource.Names); }
 
-            if (metadataSource.DataFile != null && DataFile != null &&
-                (metadataSource.DataFile.FileName != DataFile.FileName ||
-                metadataSource.DataFile.Type != DataFile.Type)) {
-                throw new Exception(string.Format("Mismatching DataFile entries for {0}", this.Names[0].Text));
+            if (metadataSource.DataFile != null && DataFile != null)
+            {
+                if (metadataSource.DataFile.FileName != DataFile.FileName)
+                    throw new Exception($"Mismatching DataFile.Name entries for {Names[0].Text}: {metadataSource.DataFile.FileName} vs. {DataFile.FileName}");
+
+                if (metadataSource.DataFile.Type != DataFile.Type)
+                    throw new Exception($"Mismatching DataFile.Type entries for {Names[0].Text}: {metadataSource.DataFile.Type} vs. {DataFile.Type}"); 
             }
 
             if (metadataSource.DataFile != null) DataFile = metadataSource.DataFile;
@@ -117,23 +123,24 @@ namespace Maps
             Credits = metadataSource.Credits;
             Products.AddRange(metadataSource.Products);
             StylesheetText = metadataSource.StylesheetText;
+
+            Tags.AddRange(metadataSource.Tags);
         }
 
         [XmlAttribute("Tags"), JsonName("Tags")]
         public string TagString
         {
-            get { return string.Join(" ", tags); }
+            get { return string.Join(" ", Tags); }
             set
             {
-                tags.Clear();
+                Tags.Clear();
                 if (string.IsNullOrWhiteSpace(value))
                     return;
-                tags.AddRange(value.Split());
+                Tags.AddRange(value.Split());
             }
         }
 
-        internal OrderedHashSet<string> Tags { get { return tags; } }
-        private OrderedHashSet<string> tags = new OrderedHashSet<string>();
+        internal OrderedHashSet<string> Tags { get; } = new OrderedHashSet<string>();
 
         public Allegiance GetAllegianceFromCode(string code)
         {
@@ -157,6 +164,15 @@ namespace Maps
 
         public string MetadataFile { get; set; }
 
+        public void AdjustRelativePaths(string baseFileName)
+        {
+            string dir = Path.GetDirectoryName(baseFileName);
+            if (DataFile != null)
+                DataFile.FileName = Path.Combine(dir, DataFile.FileName).Replace(Path.DirectorySeparatorChar, '/');
+            if (MetadataFile != null)
+                MetadataFile = Path.Combine(dir, MetadataFile).Replace(Path.DirectorySeparatorChar, '/');
+        }
+
         private WorldCollection worlds;
 
         public Subsector Subsector(char alpha)
@@ -167,7 +183,7 @@ namespace Maps
         public Subsector Subsector(int index)
         {
             if (index < 0 || index > 15)
-                throw new ArgumentOutOfRangeException("index");
+                throw new ArgumentOutOfRangeException(nameof(index));
 
             char alpha = (char)('A' + index);
 
@@ -177,9 +193,9 @@ namespace Maps
         public Subsector Subsector(int x, int y)
         {
             if (x < 0 || x > 3)
-                throw new ArgumentOutOfRangeException("x");
+                throw new ArgumentOutOfRangeException(nameof(x));
             if (y < 0 || y > 3)
-                throw new ArgumentOutOfRangeException("y");
+                throw new ArgumentOutOfRangeException(nameof(y));
 
             return Subsector(x + (y * 4));
         }
@@ -197,14 +213,12 @@ namespace Maps
             }
 
             subsector = Subsectors.Where(ss => !string.IsNullOrEmpty(ss.Name) && ss.Name.Equals(label, StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
-            if (subsector == null)
-                return -1;
-            return subsector.IndexNumber;
+            return subsector?.IndexNumber ?? -1;
         }
 
         public static int QuadrantIndexFor(string label)
         {
-            if (label == null) throw new ArgumentNullException("label");
+            if (label == null) throw new ArgumentNullException(nameof(label));
 
             switch (label.ToLowerInvariant())
             {
@@ -216,7 +230,7 @@ namespace Maps
             return -1;
         }
 
-        internal WorldCollection GetWorlds(ResourceManager resourceManager, bool cacheResults = true)
+        internal virtual WorldCollection GetWorlds(ResourceManager resourceManager, bool cacheResults = true)
         {
             lock (this)
             {
@@ -229,7 +243,7 @@ namespace Maps
                     return null;
 
                 // Otherwise, look it up
-                WorldCollection data = resourceManager.GetDeserializableFileObject(@"~/res/Sectors/" + DataFile, typeof(WorldCollection), cacheResults: false, mediaType: DataFile.Type) as WorldCollection;
+                WorldCollection data = resourceManager.GetDeserializableFileObject(DataFile.FileName, typeof(WorldCollection), cacheResults: false, mediaType: DataFile.Type) as WorldCollection;
                 foreach (World world in data)
                     world.Sector = this;
 
@@ -240,7 +254,7 @@ namespace Maps
             }
         }
 
-        internal void Serialize(ResourceManager resourceManager, TextWriter writer, string mediaType, bool includeMetadata = true, bool includeHeader = true, bool sscoords = false, WorldFilter filter = null)
+        internal void Serialize(ResourceManager resourceManager, TextWriter writer, string mediaType, SectorSerializeOptions options)
         {
             WorldCollection worlds = GetWorlds(resourceManager);
 
@@ -249,30 +263,32 @@ namespace Maps
 
             if (mediaType == "TabDelimited")
             {
-                if (worlds != null)
-                    worlds.Serialize(writer, mediaType, includeHeader: includeHeader, filter: filter);
+                worlds?.Serialize(writer, mediaType, options);
                 return;
             }
 
-            if (includeMetadata)
+            if (options.includeMetadata)
             {
                 // Header
                 //
-                writer.WriteLine("# Generated by http://travellermap.com");
+                writer.WriteLine("# Generated by https://travellermap.com");
                 writer.WriteLine("# " + DateTime.Now.ToString("yyyy-MM-ddTHH:mm:sszzz", DateTimeFormatInfo.InvariantInfo));
                 writer.WriteLine();
 
-                writer.WriteLine("# {0}", Names[0]);
-                writer.WriteLine("# {0},{1}", X, Y);
+                writer.WriteLine($"# {Names[0]}");
+                writer.WriteLine($"# {X},{Y}");
 
                 writer.WriteLine();
                 foreach (var name in Names)
                 {
                     if (name.Lang != null)
-                        writer.WriteLine("# Name: {0} ({1})", name.Text, name.Lang);
+                        writer.WriteLine($"# Name: {name.Text} ({name.Lang})");
                     else
-                        writer.WriteLine("# Name: {0}", name);
+                        writer.WriteLine($"# Name: {name}");
                 }
+
+                writer.WriteLine();
+                writer.WriteLine($"# Milieu: {CanonicalMilieu}");
 
                 if (Credits != null)
                 {
@@ -280,20 +296,17 @@ namespace Maps
                     stripped = Regex.Replace(stripped, @"\s+", " ");
                     stripped = stripped.Trim();
                     writer.WriteLine();
-                    writer.WriteLine("# Credits: {0}", stripped);
+                    writer.WriteLine($"# Credits: {stripped}");
                 }
 
                 if (DataFile != null)
                 {
                     writer.WriteLine();
-                    if (DataFile.Era != null) { writer.WriteLine("# Era: {0}", DataFile.Era); }
-                    writer.WriteLine();
-
-                    if (DataFile.Author != null) { writer.WriteLine("# Author:    {0}", DataFile.Author); }
-                    if (DataFile.Publisher != null) { writer.WriteLine("# Publisher: {0}", DataFile.Publisher); }
-                    if (DataFile.Copyright != null) { writer.WriteLine("# Copyright: {0}", DataFile.Copyright); }
-                    if (DataFile.Source != null) { writer.WriteLine("# Source:    {0}", DataFile.Source); }
-                    if (DataFile.Ref != null) { writer.WriteLine("# Ref:       {0}", DataFile.Ref); }
+                    if (DataFile.Author != null) { writer.WriteLine($"# Author:    {DataFile.Author}"); }
+                    if (DataFile.Publisher != null) { writer.WriteLine($"# Publisher: {DataFile.Publisher}"); }
+                    if (DataFile.Copyright != null) { writer.WriteLine($"# Copyright: {DataFile.Copyright}"); }
+                    if (DataFile.Source != null) { writer.WriteLine($"# Source:    {DataFile.Source}"); }
+                    if (DataFile.Ref != null) { writer.WriteLine($"# Ref:       {DataFile.Ref}"); }
                 }
 
                 writer.WriteLine();
@@ -301,33 +314,35 @@ namespace Maps
                 {
                     char c = (char)('A' + i);
                     Subsector ss = Subsector(c);
-                    writer.WriteLine("# Subsector {0}: {1}", c, ss?.Name ?? "");
+                    writer.WriteLine($"# Subsector {c}: {ss?.Name ?? ""}");
                 }
                 writer.WriteLine();
             }
 
             if (worlds == null)
             {
-                if (includeMetadata)
+                if (options.includeMetadata)
                     writer.WriteLine("# No world data available");
                 return;
             }
 
             // Allegiances
-            if (includeMetadata)
+            if (options.includeMetadata)
             {
                 // Use codes as present in the data, to match the worlds
                 foreach (string code in worlds.AllegianceCodes().OrderBy(s => s))
                 {
                     var alleg = GetAllegianceFromCode(code);
-                    if (alleg != null)
-                        writer.WriteLine("# Alleg: {0}: \"{1}\"", isT5 ? code : SecondSurvey.T5AllegianceCodeToLegacyCode(code), alleg.Name);
+                    if (alleg != null) {
+                        var a = isT5 ? code : SecondSurvey.T5AllegianceCodeToLegacyCode(code);
+                        writer.WriteLine($"# Alleg: {a}: \"{alleg.Name}\"");
+                    }
                 }
                 writer.WriteLine();
             }
 
             // Worlds
-            worlds.Serialize(writer, mediaType, includeHeader: includeHeader, sscoords: sscoords, filter: filter);
+            worlds.Serialize(writer, mediaType, options);
         }
 
         // TODO: Move this elsewhere
@@ -454,6 +469,120 @@ namespace Maps
             }
         }
         private string stylesheetText;
+
+        internal SectorMap.MilieuMap MilieuMap { get; set; }
+
+        public IEnumerable<string> RoutesForWorld(World world)
+        {
+            Location loc = new Location(this.Location, new Hex(world.X, world.Y));
+
+            // Collect adjacent sectors
+            List<Sector> sectors = new List<Sector>();
+            if (MilieuMap == null)
+            {
+                sectors.Add(this);
+            }
+            else
+            {
+                for (int x = this.X - 1; x <= this.X + 1; ++x)
+                {
+                    for (int y = this.Y - 1; y <= this.Y + 1; ++y)
+                    {
+                        Sector sector = MilieuMap.FromLocation(new Point(x, y));
+                        if (x == X && y == X && sector != this)
+                            throw new ApplicationException("Sector lookup did not find itself");
+                        if (sector != null)
+                            sectors.Add(sector);
+                    }
+                }
+            }
+
+            // Collect routes linking to world
+            HashSet<string> routes = new HashSet<string>();
+            foreach (Sector sector in sectors)
+            {
+                foreach (Route route in sector.Routes)
+                {
+                    Location start, end;
+                    sector.RouteToStartEnd(route, out start, out end);
+                    if (start == end)
+                        continue;
+
+                    if (end == loc)
+                        Util.Swap(ref start, ref end);
+                    else if (start != loc)
+                        continue;
+
+                    string prefix =
+                        (string.IsNullOrWhiteSpace(route.Type) || route.Type.ToLowerInvariant() == "xboat") ? "Xb" : "Tr";
+
+                    string s;
+                    if (end.Sector == this.Location)
+                    {
+                        s = $"{prefix}:{end.Hex}";
+                    }
+                    else
+                    {
+                        Sector endSector = MilieuMap.FromLocation(end.Sector);
+                        // Dangling route into non-detailed sector.
+                        if (endSector == null)
+                            continue;
+                        s = $"{prefix}:{endSector.Abbreviation}-{end.Hex}";
+                    }
+                    routes.Add(s);
+                }
+            }
+            return routes;
+        }
+
+        public void RouteToStartEnd(Route route, out Location start, out Location end)
+        {
+            Point startSector = Location, endSector = Location;
+            startSector.Offset(route.StartOffset);
+            endSector.Offset(route.EndOffset);
+
+            start = new Location(startSector, route.Start);
+            end = new Location(endSector, route.End);
+        }
+    }
+
+    internal class Dotmap : Sector
+    {
+        private Sector basis;
+        private WorldCollection worlds = null;
+
+        public Dotmap(Sector basis) {
+            this.X = basis.X;
+            this.Y = basis.Y;
+            this.basis = basis;
+        }
+
+        internal override WorldCollection GetWorlds(ResourceManager resourceManager, bool cacheResults = true)
+        {
+            if (this.worlds != null)
+                return this.worlds;
+
+            WorldCollection worlds = basis.GetWorlds(resourceManager, cacheResults);
+            if (worlds == null)
+                return null;
+
+            WorldCollection dots = new WorldCollection();
+            foreach (var world in worlds)
+            {
+                var dot = new World();
+                dot.Hex = world.Hex;
+                dot.UWP = "???????-?";
+                dot.PBG = "???";
+                dot.Allegiance = "??";
+                dot.Sector = this;
+                dots[dot.X, dot.Y] = dot;
+            }
+
+            if (cacheResults)
+                this.worlds = dots;
+
+            return dots;
+        }
     }
 
     public class Product : MetadataItem
@@ -487,38 +616,26 @@ namespace Maps
 
     public class DataFile : MetadataItem
     {
-        public DataFile()
-        {
-            FileName = string.Empty;
-            Type = "SEC";
-        }
-
         public override string ToString()
         {
             return FileName;
         }
 
         [XmlText]
-        public string FileName { get; set; }
+        public string FileName { get; set; } = string.Empty;
 
         [XmlAttribute]
         [DefaultValueAttribute("")]
-        public string Type { get; set; }
+        public string Type { get; set; } = "SEC";
     }
 
     public class Subsector : MetadataItem
     {
-        public Subsector()
-        {
-            Name = string.Empty;
-            Index = string.Empty;
-        }
-
         [XmlText]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [XmlAttribute]
-        public string Index { get; set; }
+        public string Index { get; set; } = string.Empty;
 
         public int IndexNumber
         {
@@ -588,11 +705,11 @@ namespace Maps
         string Allegiance { get; }
     }
 
+
     public class Border : IAllegiance
     {
         public Border()
         {
-            ShowLabel = true;
         }
 
         internal Border(string path, string color = null) : this()
@@ -604,7 +721,7 @@ namespace Maps
 
         [XmlAttribute]
         [DefaultValue(true)]
-        public bool ShowLabel { get; set; }
+        public bool ShowLabel { get; set; } = true;
 
         [XmlAttribute]
         public bool WrapLabel { get; set; }
@@ -646,7 +763,7 @@ namespace Maps
             }
             set
             {
-                if (value == null) throw new ArgumentNullException("value");
+                if (value == null) throw new ArgumentNullException(nameof(value));
 
                 string[] hexes = value.Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
                 path = (from hex in hexes select new Hex(hex)).ToList();
@@ -681,19 +798,17 @@ namespace Maps
             return borderPathsCache[(int)type];
         }
 
-        public string GetLabel(Sector sector)
+        internal string GetLabel(Sector sector)
         {
             if (!ShowLabel)
                 return null;
             if (!string.IsNullOrEmpty(Label))
                 return Label;
             Allegiance alleg = sector.GetAllegianceFromCode(Allegiance);
-            if (alleg == null)
-                return null;
-            return alleg.Name;
+            return alleg?.Name;
         }
     }
-
+    
     public enum LineStyle
     {
         Solid = 0, // Default
@@ -794,21 +909,10 @@ namespace Maps
             var s = "";
 
             if (StartOffsetX != 0 || StartOffsetY != 0)
-            {
-                s += StartOffsetX.ToString(CultureInfo.InvariantCulture);
-                s += " ";
-                s += StartOffsetY.ToString(CultureInfo.InvariantCulture);
-                s += " ";
-            }
-            s += StartHex;
-            s += " ";
+                s += $"{StartOffsetX} ${StartOffsetY} ";
+            s += $"{StartHex} ";
             if (EndOffsetX != 0 || EndOffsetY != 0)
-            {
-                s += EndOffsetX.ToString(CultureInfo.InvariantCulture);
-                s += " ";
-                s += EndOffsetY.ToString(CultureInfo.InvariantCulture);
-                s += " ";
-            }
+                s += $"{EndOffsetX} ${EndOffsetY} ";
             s += EndHex;
             return s;
         }

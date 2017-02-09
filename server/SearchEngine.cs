@@ -45,6 +45,43 @@ namespace Maps
             return Regex.Replace(s.Trim(), @"\s+", " ");
         }
 
+        private static readonly string[] SECTORS_COLUMNS = {
+            "milieu nvarchar(12) NULL",
+            "x int NOT NULL",
+            "y int NOT NULL",
+            "name nvarchar(50) NULL"
+        };
+        private static readonly string[] SUBSECTORS_COLUMNS = {
+            "milieu nvarchar(12) NULL",
+            "sector_x int NOT NULL",
+            "sector_y int NOT NULL",
+            "subsector_index char(1) NOT NULL",
+            "name nvarchar(50) NULL"
+        };
+        private static readonly string[] WORLDS_COLUMNS = {
+            "milieu nvarchar(12) NULL",
+            "x int NOT NULL",
+            "y int NOT NULL",
+            "sector_x int NOT NULL",
+            "sector_y int NOT NULL",
+            "hex_x int NOT NULL",
+            "hex_y int NOT NULL",
+            "name nvarchar(50) NULL",
+            "uwp nchar(9) NULL",
+            "remarks nvarchar(50) NULL",
+            "pbg nchar(3) NULL",
+            "zone nchar(1) NULL",
+            "alleg nchar(4) NULL",
+            "sector_name nvarchar(50) NULL"
+        };
+        private static readonly string[] LABELS_COLUMNS = {
+            "milieu nvarchar(12) NULL",
+            "x int NOT NULL",
+            "y int NOT NULL",
+            "radius int NOT NULL",
+            "name nvarchar(50) NULL"
+        };
+
         public static void PopulateDatabase(ResourceManager resourceManager, StatusCallback callback)
         {
             // Lock to prevent indexing twice, without blocking tile requests.
@@ -65,65 +102,73 @@ namespace Maps
                     //
 
                     DataTable dt_sectors = new DataTable();
-                    for (int i = 0; i < 3; ++i)
+                    for (int i = 0; i < SECTORS_COLUMNS.Length; ++i)
                         dt_sectors.Columns.Add(new DataColumn());
 
                     DataTable dt_subsectors = new DataTable();
-                    for (int i = 0; i < 4; ++i)
+                    for (int i = 0; i < SUBSECTORS_COLUMNS.Length; ++i)
                         dt_subsectors.Columns.Add(new DataColumn());
 
                     DataTable dt_worlds = new DataTable();
-                    for (int i = 0; i < 13; ++i)
+                    for (int i = 0; i < WORLDS_COLUMNS.Length; ++i)
                         dt_worlds.Columns.Add(new DataColumn());
 
                     DataTable dt_labels = new DataTable();
-                    for (int i = 0; i < 4; ++i)
+                    for (int i = 0; i < LABELS_COLUMNS.Length; ++i)
                         dt_labels.Columns.Add(new DataColumn());
 
-                    Dictionary<string, List<Point>> labels = new Dictionary<string, List<Point>>();
-                    Action<string, Point> AddLabel = (string text, Point coords) => {
+                    // Map of (milieu, string) => [ points ... ]
+                    Dictionary<Tuple<string, string>, List<Point>> labels = new Dictionary<Tuple<string, string>, List<Point>>();
+                    Action<string, string, Point> AddLabel = (string milieu, string text, Point coords) => {
                         if (text == null) return;
                         text = SanifyLabel(text);
-                        if (!labels.ContainsKey(text))
-                            labels.Add(text, new List<Point>());
-                        labels[text].Add(coords);
+                        var key = Tuple.Create(milieu, text);
+                        if (!labels.ContainsKey(key))
+                            labels.Add(key, new List<Point>());
+                        labels[key].Add(coords);
                     };
 
                     callback("Parsing data...");
                     foreach (Sector sector in map.Sectors)
                     {
+                        // TODO: Index alternate milieu
                         if (!sector.Tags.Contains("OTU") && !sector.Tags.Contains("Faraway"))
                             continue;
 
                         foreach (Name name in sector.Names)
                         {
                             DataRow row = dt_sectors.NewRow();
-                            row.ItemArray = new object[] { sector.X, sector.Y, name.Text };
+                            row.ItemArray = new object[] { sector.CanonicalMilieu, sector.X, sector.Y, name.Text };
                             dt_sectors.Rows.Add(row);
                         }
                         if (!string.IsNullOrEmpty(sector.Abbreviation))
                         {
                             DataRow row = dt_sectors.NewRow();
-                            row.ItemArray = new object[] { sector.X, sector.Y, sector.Abbreviation };
+                            row.ItemArray = new object[] { sector.CanonicalMilieu, sector.X, sector.Y, sector.Abbreviation };
                             dt_sectors.Rows.Add(row);
                         }
 
                         foreach (Subsector subsector in sector.Subsectors)
                         {
                             DataRow row = dt_subsectors.NewRow();
-                            row.ItemArray = new object[] { sector.X, sector.Y, subsector.Index, subsector.Name };
+                            row.ItemArray = new object[] { sector.CanonicalMilieu, sector.X, sector.Y, subsector.Index, subsector.Name };
                             dt_subsectors.Rows.Add(row);
                         }
 
                         foreach (Border border in sector.Borders.Where(b => b.ShowLabel))
                         {
-                            AddLabel(border.GetLabel(sector), 
+                            AddLabel(
+                                sector.CanonicalMilieu, 
+                                border.GetLabel(sector), 
                                 Astrometrics.LocationToCoordinates(new Location(sector.Location, border.LabelPosition)));
                         }
 
                         foreach (Label label in sector.Labels)
                         {
-                            AddLabel(label.Text, Astrometrics.LocationToCoordinates(new Location(sector.Location, label.Hex)));
+                            AddLabel(
+                                sector.CanonicalMilieu, 
+                                label.Text, 
+                                Astrometrics.LocationToCoordinates(new Location(sector.Location, label.Hex)));
                         }
 
 #if DEBUG
@@ -141,7 +186,8 @@ namespace Maps
                         foreach (World world in world_query)
                         {
                             DataRow row = dt_worlds.NewRow();
-                            row.ItemArray = new object[] { 
+                            row.ItemArray = new object[] {
+                                    sector.CanonicalMilieu,
                                     world.Coordinates.X,
                                     world.Coordinates.Y,
                                     sector.X, 
@@ -161,9 +207,10 @@ namespace Maps
                         }
                     }
 
-                    foreach (KeyValuePair<string, List<Point>> entry in labels)
+                    foreach (KeyValuePair<Tuple<string, string>, List<Point>> entry in labels)
                     {
-                        string name = entry.Key;
+                        string milieu = entry.Key.Item1;
+                        string name = entry.Key.Item2;
                         List<Point> points = entry.Value;
 
                         Point avg = new Point(
@@ -176,10 +223,11 @@ namespace Maps
 
                         DataRow row = dt_labels.NewRow();
                         row.ItemArray = new object[] {
+                            milieu,
                             avg.X,
                             avg.Y,
                             radius,
-                            entry.Key
+                            name
                         };
                         dt_labels.Rows.Add(row);
                     }
@@ -194,37 +242,28 @@ namespace Maps
 
                     string[] rebuild_schema = {
                         string.Format(DROP_TABLE_IF_EXISTS, "sectors"),
-                        "CREATE TABLE sectors (x int NOT NULL, y int NOT NULL, name nvarchar(50) NULL)",
+                        "CREATE TABLE sectors (" + string.Join(",", SECTORS_COLUMNS) + ")",
                         "CREATE NONCLUSTERED INDEX sector_name ON sectors ( name ASC )" + INDEX_OPTIONS,
+                        "CREATE NONCLUSTERED INDEX sector_milieu ON sectors ( milieu ASC )" + INDEX_OPTIONS,
 
                         string.Format(DROP_TABLE_IF_EXISTS, "subsectors"),
-                        "CREATE TABLE subsectors (sector_x int NOT NULL, sector_y int NOT NULL, subsector_index char(1) NOT NULL, name nvarchar(50) NULL)",
+                        "CREATE TABLE subsectors (" + string.Join(",", SUBSECTORS_COLUMNS) + ")",
                         "CREATE NONCLUSTERED INDEX subsector_name ON subsectors ( name ASC )" + INDEX_OPTIONS,
+                        "CREATE NONCLUSTERED INDEX subsector_milieu ON subsectors ( milieu ASC )" + INDEX_OPTIONS,
 
                         string.Format(DROP_TABLE_IF_EXISTS, "worlds"),
-                        "CREATE TABLE worlds ("
-                            + "x int NOT NULL, "
-                            + "y int NOT NULL, "
-                            + "sector_x int NOT NULL, " 
-                            + "sector_y int NOT NULL, "
-                            + "hex_x int NOT NULL, "
-                            + "hex_y int NOT NULL, "
-                            + "name nvarchar(50) NULL, "
-                            + "uwp nchar(9) NULL, "
-                            + "remarks nvarchar(50) NULL, "
-                            + "pbg nchar(3) NULL, "
-                            + "zone nchar(1) NULL, "
-                            + "alleg nchar(4) NULL, "
-                            + "sector_name nvarchar(50) NULL)",
+                        "CREATE TABLE worlds (" + string.Join(",", WORLDS_COLUMNS) + ")",
                         "CREATE NONCLUSTERED INDEX world_name ON worlds ( name ASC )" + INDEX_OPTIONS,
                         "CREATE NONCLUSTERED INDEX world_uwp ON worlds ( uwp ASC )" + INDEX_OPTIONS,
                         "CREATE NONCLUSTERED INDEX world_pbg ON worlds ( pbg ASC )" + INDEX_OPTIONS,
                         "CREATE NONCLUSTERED INDEX world_alleg ON worlds ( alleg ASC )" + INDEX_OPTIONS,
                         "CREATE NONCLUSTERED INDEX world_sector_name ON worlds ( sector_name ASC )" + INDEX_OPTIONS,
+                        "CREATE NONCLUSTERED INDEX world_milieu ON worlds ( milieu ASC )" + INDEX_OPTIONS,
 
                         string.Format(DROP_TABLE_IF_EXISTS, "labels"),
-                        "CREATE TABLE labels (x int NOT NULL, y int NOT NULL, radius int NOT NULL, name nvarchar(50) NULL)",
+                        "CREATE TABLE labels (" + string.Join(",", LABELS_COLUMNS) + ")",
                         "CREATE NONCLUSTERED INDEX name ON labels ( name ASC )" + INDEX_OPTIONS,
+                        "CREATE NONCLUSTERED INDEX milieu ON labels ( milieu ASC )" + INDEX_OPTIONS,
                     };
 
                     callback("Rebuilding schema...");
@@ -240,7 +279,7 @@ namespace Maps
                     Action<string, DataTable, int> BulkInsert = (string name, DataTable table, int batchSize) => {
                         using (var bulk = new SqlBulkCopy(connection, SqlBulkCopyOptions.TableLock, null))
                         {
-                            callback(string.Format("Writing {0} {1}...", table.Rows.Count, name));
+                            callback($"Writing {table.Rows.Count} {name}...");
                             bulk.BatchSize = batchSize;
                             bulk.DestinationTableName = name;
                             bulk.WriteToServer(table);
@@ -256,7 +295,7 @@ namespace Maps
             }
         }
 
-        public static IEnumerable<ItemLocation> PerformSearch(string query, SearchResultsType types, int maxResultsPerType)
+        public static IEnumerable<ItemLocation> PerformSearch(string milieu, string query, SearchResultsType types, int maxResultsPerType, bool random = false)
         {
             List<ItemLocation> results = new List<ItemLocation>();
 
@@ -264,19 +303,35 @@ namespace Maps
             List<string> terms;
             types = ParseQuery(query, types, out clauses, out terms);
 
-            if (clauses.Count() == 0)
+            if (clauses.Count() == 0 && !random)
                 return results;
 
-            string where = string.Join(" AND ", clauses.ToArray());
+            clauses.Insert(0, "milieu = @term");
+            terms.Insert(0, milieu ?? SectorMap.DEFAULT_MILIEU);
+
+            string where = string.Join(" AND ",
+                clauses.Select((clause, index) => "(" + clause.Replace("@term", $"@term{index}") + ")"));
+
+            string orderBy = random ? "ORDER BY NEWID()" : "";
 
             // NOTE: DISTINCT is to filter out "Ley" and "Ley Sector" (different names, same result). 
+            // * {0} is the list of distinct fields (i.e. coordinates), 
+            // * {1} is the list of fields in the subquery (same as {0} but with "name" added,
+            // * {2} is the table
+            // * {3} is the filter (WHERE clause, not including "WHERE")
+            // * {4} is the order (ORDERBY clause)
+            // * {5} is the limit (TOP clause, not including "TOP")
+            // Since we need the distinct values from the term {0} but don't use the name for the results construction,
+            // we can ignore name in the resultset. This allows us to get the top N results from the database, sort by
+            // name, and then toss out duplicates not based on name but on the other, used, columns. Here's a sample 
+            // subquery that works for the sector table:
+            //   SELECT DISTINCT TOP 160 tt.x, tt.y 
+            //   FROM (SELECT TOP 160 x, y,name
+            //         FROM sectors
+            //         WHERE (name LIKE 'LEY%' OR name LIKE '%LEY%')
+            //         ORDER BY name ASC) AS tt;
             // TODO: Include the searched-for name in the results, and show alternate names in the result set.
-            // {0} is the list of distinct fields (i.e. coordinates), {1} is the list of fields in the subquery (same as {0} but with "name" added, {2} is the table, {3} is the filter
-            // Since we need the distinct values from the term {0} but don't use the name for the results construction, we can ignore name in the resultset.
-            // This allows us to get the top N results from the database, sort by name, and then toss out duplicates not based on name but on the other, used, columns
-            // Here's a sample subquery that works for the sector table.
-            // SELECT DISTINCT TOP 160 tt.x, tt.y FROM (SELECT TOP 160 x, y,name FROM sectors WHERE (name LIKE 'LEY%' OR name LIKE '%LEY%') ORDER BY name ASC) AS tt;
-            string query_format = "SELECT DISTINCT TOP " + maxResultsPerType + " {0} FROM (SELECT TOP " + maxResultsPerType + " {1} FROM {2} WHERE {3}) AS TT";
+            string query_format = "SELECT DISTINCT TOP {5} {0} FROM (SELECT TOP {5} {1} FROM {2} WHERE {3} {4}) AS TT";
 
             using (var connection = DBUtil.MakeConnection())
             {
@@ -284,11 +339,11 @@ namespace Maps
                 if (types.HasFlag(SearchResultsType.Sectors))
                 {
                     // Note duplicated field names so the results of both queries can come out right.
-                    string sql = string.Format(query_format, "TT.x, TT.y", "x, y", "sectors", where);
+                    string sql = string.Format(query_format, "TT.x, TT.y", "x, y", "sectors", where, orderBy, maxResultsPerType);
                     using (var sqlCommand = new SqlCommand(sql, connection))
                     {
                         for (int i = 0; i < terms.Count; ++i)
-                            sqlCommand.Parameters.AddWithValue(string.Format("@term{0}", i), terms[i]);
+                            sqlCommand.Parameters.AddWithValue($"@term{i}", terms[i]);
 
                         using (var row = sqlCommand.ExecuteReader())
                         {
@@ -304,11 +359,11 @@ namespace Maps
                 if (types.HasFlag(SearchResultsType.Subsectors))
                 {
                     // Note duplicated field names so the results of both queries can come out right.
-                    string sql = string.Format(query_format, "TT.sector_x, TT.sector_y, TT.subsector_index", "sector_x, sector_y, subsector_index", "subsectors", where);
+                    string sql = string.Format(query_format, "TT.sector_x, TT.sector_y, TT.subsector_index", "sector_x, sector_y, subsector_index", "subsectors", where, orderBy, maxResultsPerType);
                     using (var sqlCommand = new SqlCommand(sql, connection))
                     {
                         for (int i = 0; i < terms.Count; ++i)
-                            sqlCommand.Parameters.AddWithValue(string.Format("@term{0}", i), terms[i]);
+                            sqlCommand.Parameters.AddWithValue($"@term{i}", terms[i]);
 
                         using (var row = sqlCommand.ExecuteReader())
                         {
@@ -327,11 +382,11 @@ namespace Maps
                 if (types.HasFlag(SearchResultsType.Worlds))
                 {
                     // Note duplicated field names so the results of both queries can come out right.
-                    string sql = string.Format(query_format, "TT.sector_x, TT.sector_y, TT.hex_x, TT.hex_y", "sector_x, sector_y, hex_x, hex_y", "worlds", where);
+                    string sql = string.Format(query_format, "TT.sector_x, TT.sector_y, TT.hex_x, TT.hex_y", "sector_x, sector_y, hex_x, hex_y", "worlds", where, orderBy, maxResultsPerType);
                     using (var sqlCommand = new SqlCommand(sql, connection))
                     {
                         for (int i = 0; i < terms.Count; ++i)
-                            sqlCommand.Parameters.AddWithValue(string.Format("@term{0}", i), terms[i]);
+                            sqlCommand.Parameters.AddWithValue($"@term{i}", terms[i]);
 
                         using (var row = sqlCommand.ExecuteReader())
                         {
@@ -345,11 +400,11 @@ namespace Maps
                 if (types.HasFlag(SearchResultsType.Labels))
                 {
                     // Note duplicated field names so the results of both queries can come out right.
-                    string sql = string.Format(query_format, "TT.x, TT.y, TT.radius, TT.name", "x, y, radius, name", "labels", where);
+                    string sql = string.Format(query_format, "TT.x, TT.y, TT.radius, TT.name", "x, y, radius, name", "labels", where, orderBy, maxResultsPerType);
                     using (var sqlCommand = new SqlCommand(sql, connection))
                     {
                         for (int i = 0; i < terms.Count; ++i)
-                            sqlCommand.Parameters.AddWithValue(string.Format("@term{0}", i), terms[i]);
+                            sqlCommand.Parameters.AddWithValue($"@term{i}", terms[i]);
 
                         using (var row = sqlCommand.ExecuteReader())
                         {
@@ -382,13 +437,16 @@ namespace Maps
             return RE_TERMS.Matches(q).Cast<Match>().Select(m => m.Value).Where(s => !string.IsNullOrWhiteSpace(s));
         }
 
-        public static WorldLocation FindNearestWorldMatch(string name, int x, int y)
+        public static WorldLocation FindNearestWorldMatch(string name, string milieu, int x, int y)
         {
-            string sql = "SELECT sector_x, sector_y, hex_x, hex_y, " +
+            const string sql = "SELECT sector_x, sector_y, hex_x, hex_y, " +
                 "((@x - x) * (@x - x) + (@y - y) * (@y - y)) AS distance " +
                 "FROM worlds " +
-                "WHERE name = @name " +
+                "WHERE name = @name AND milieu = @milieu " +
                 "ORDER BY distance ASC";
+
+            if (milieu == null)
+                milieu = SectorMap.DEFAULT_MILIEU;
 
             using (var connection = DBUtil.MakeConnection())
             {
@@ -396,6 +454,7 @@ namespace Maps
                 {
                     sqlCommand.Parameters.AddWithValue("@x", x);
                     sqlCommand.Parameters.AddWithValue("@y", y);
+                    sqlCommand.Parameters.AddWithValue("@milieu", milieu);
                     sqlCommand.Parameters.AddWithValue("@name", name);
                     using (var row = sqlCommand.ExecuteReader())
                     {
@@ -411,6 +470,10 @@ namespace Maps
         {
             clauses = new List<string>();
             terms = new List<string>();
+            if (string.IsNullOrWhiteSpace(query))
+                return types;
+            query = query.ToLowerInvariant();
+
             foreach (string t in ParseTerms(query))
             {
                 string term = t;
@@ -490,8 +553,7 @@ namespace Maps
                     clause = "name LIKE @term + '%' OR name LIKE '% ' + @term + '%'";
                 }
 
-                clause = clause.Replace("@term", string.Format("@term{0}", terms.Count));
-                clauses.Add("(" + clause + ")");
+                clauses.Add(clause);
                 terms.Add(term);
             }
             return types;

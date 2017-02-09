@@ -68,8 +68,7 @@ namespace Maps.Serialization
         }
  
         private List<Column> columns = new List<Column>();
-        private List<Row> data = new List<Row>();
-        public List<Row> Data { get { return data; } }
+        public List<Row> Data { get; } = new List<Row>();
 
         public IEnumerable<string> Fields { get { return (from col in columns select col.name); } }
 
@@ -91,7 +90,7 @@ namespace Maps.Serialization
             Dictionary<string, string> dict = new Dictionary<string, string>();
             foreach (var column in columns)
                 dict[column.name] = line.SafeSubstring(column.start, column.length).TrimEnd();
-            data.Add(new Row { dict = dict, line = line, lineNumber = lineNumber });
+            Data.Add(new Row { dict = dict, line = line, lineNumber = lineNumber });
         }
     }
 
@@ -118,12 +117,7 @@ namespace Maps.Serialization
 
             string[] row = new string[rows[0].Length];
             for (int i = 0; i < row.Length; ++i)
-            {
-                if (data[i] == null)
-                    row[i] = "";
-                else
-                    row[i] = data[i].Trim();
-            }
+                row[i] = data[i]?.Trim() ?? "";
             rows.Add(row);
         }
         public int[] ComputeWidths()

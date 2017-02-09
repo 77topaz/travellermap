@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <title>Information - Traveller Map</title>
 <meta charset="utf-8">
 <link rel="shortcut icon" href="../favicon.ico">
-<link rel="stylesheet" href="../site.css?update=2015-10-28">
+<link rel="stylesheet" href="../site.css?update=2016-10-02">
 <link rel="stylesheet" href="../lib/lightbox/lightbox.css">
 <meta name="viewport" content="initial-scale=1, width=device-width">
-<script src="https://cdn.rawgit.com/inexorabletash/polyfill/v0.1.14/polyfill.min.js"></script>
+<script src="https://cdn.rawgit.com/inexorabletash/polyfill/v0.1.29/polyfill.min.js"></script>
 
 <h1>The Traveller Map</h1>
 <div class="content">
@@ -70,7 +70,8 @@
       appreciated. <i>Unreviewed</i> data was officially published
       data for one of the many prior revisions of
       <cite>Traveller</cite> but has not yet been reviewed by the
-      T5SS; it is expected that this data, will become official soon.
+      T5SS; it is expected that this data will become official
+      eventually.
     </p>
     <p>
       In contrast, <i>Apocryphal</i> data was formerly supplied by
@@ -129,15 +130,20 @@
       subsector, among others.
     </p>
     <p>
-      You can use <code>*</code> and <code>?</code> as
-      wildcards. <code>*</code> matches zero or more characters,
-      so <code>*ward</code> will find the Spinward Marches
-      sector. <code>?</code> matches exactly one character,
-      so <code>t?rra</code> will find the Terra system.
+      You can use <code>*</code> and <code>?</code> as wildcards.
+      <code>*</code> matches zero or more characters, so
+      <code>*ward</code> will find the Spinward Marches sector.
+      <code>?</code> matches exactly one character, so
+      <code>t?rra</code> will find the Terra system. You can also use
+      character ranges like <code>[8-C]</code> or <code>[89A]</code>.
     </p>
     <p>
       Specify <code>uwp:</code> to search UWPs. For example,
       <code>uwp:*-g</code> will find tech level 16 worlds.
+      <code>uwp:B[5-7][6-7][3-9][4-8]?[4-7]-[B-D]</code> will
+      find all starport B, medium size, standard atmosphere,
+      wet, moderate poulation and law-level words with
+      average stellar tech level.
     </p>
     <p>
       Specify <code>pbg:</code> to search PBG. For example,
@@ -194,6 +200,7 @@
       border: 1px solid black;
       border-radius: 4px;
       padding: 2px;
+      line-height: 100%;
       margin: 2px;
       margin-top: 8px;
       margin-bottom: -6px;
@@ -208,6 +215,7 @@
     <div id="keys">
       <div><span class="key">+</span> - Zoom in</div>
       <div><span class="key">&minus;</span> - Zoom out</div>
+      <div><span class="key">C</span> - Show data for centered world</div>
       <div><span class="key">H</span> - Home (default view)</div>
       <div><span class="key">T</span> - Toggle tilted view</div>
       <div><span class="key">I</span> or <span class="key arrow">&uarr;</span> - Scroll up (coreward)</div>
@@ -350,7 +358,7 @@
   <section id="related">
     <h3>Related Sites and Sources</h3>
 
-    <h4>Active Sites (circa 2014)</h4>
+    <h4>Active Sites (circa 2017)</h4>
 
     <p>
       <a target="_blank" href="http://http://wiki.travellerrpg.com/">The Traveller Wiki</a> -
@@ -364,24 +372,10 @@
 
     <p>
       Samuel Penn's <a target="_blank" href="http://mapcraft.glendale.org.uk/worldgen">WorldGen</a>
-      project which includes a
-      <a target="_blank" href="http://www.glendale.org.uk/traveller/data/knownspace.jsp">scrollable map</a>.
+      project.
     </p>
 
     <h4>Other Sites</h4>
-
-    <p>
-      <a target="_blank" href="http://homepage.ntlworld.com/elvwood/Traveller/Sectors/">Underdeveloped
-        Sectors</a> - John G. Wood's project to remap the sectors of the Coreward
-      and Rimward domains, based on the published DGP dotmaps.
-      <em>This data is incorporated into the Traveller Map with permission.</em>
-    </p>
-
-    <p>
-      <a target="_blank" href="http://dmckinne.winterwar.org/sector.html">Traveller Sector Information</a> -
-      Donald McKinney's comprehensive list of documented sectors in Traveller.
-      <em>Don now heads up the T5SS project, producing the official data used by the Traveller Map.</em>
-    </p>
 
     <p>
       <a target="_blank" href="http://www.utzig.com/traveller/iai.shtml">Interactive Atlas of the
@@ -404,6 +398,18 @@
 
     <h4>Archived Sites</h4>
     <i> (via <a target="_blank" href="https://archive.org">The Internet Archive's Wayback Machine</a>)</i>
+
+    <p>
+      <a target="_blank" href="https://web.archive.org/web/20160313121509/http://dmckinne.winterwar.org/sector.html">Traveller Sector Information</a> -
+      Donald McKinney's comprehensive list of documented sectors in Traveller.
+    </p>
+
+    <p>
+      <a target="_blank" href="https://web.archive.org/web/20160205040546/http://homepage.ntlworld.com/elvwood/Traveller/Sectors/">Underdeveloped
+        Sectors</a> - John G. Wood's project to remap the sectors of the Coreward
+      and Rimward domains, based on the published DGP dotmaps.
+      <em>This data is incorporated into the Traveller Map with permission.</em>
+    </p>
 
     <p>
       <a target="_blank" href="https://web.archive.org/web/20131122115905/http://traveller.mu.org/archive/">The Missouri Traveller Archive</a> -
@@ -449,22 +455,22 @@
     <ul>
       <li>
         Follow the <a target="_blank"
-        href="../?q=(grand%20tour)">Grand Tour</a> route taken by the
+        href="../?qn=(grand%20tour)">Grand Tour</a> route taken by the
         intrepid adventures from The Travellers' Digest.
       </li>
       <li>
         Follow the <a target="_blank"
-        href="../?q=(arrival%20vengeance)">Arrival Vengeance</a> -
+        href="../?qn=(arrival%20vengeance)">Arrival Vengeance</a> -
         Archduke Norris' last desperate attempt to save the Third
         Imperium.
       </li>
       <li>
         See the locations of FASA adventures set in the
-        <a target="_blank" href="../?q=(far%20frontiers)">Far Frontiers</a> sector.
+        <a target="_blank" href="../?qn=(far%20frontiers)">Far Frontiers</a> sector.
       </li>
       <li>
         Follow the route of the
-        <a target="_blank" href="../?q=(cirque)">Cirque des Sirkas</a> through the
+        <a target="_blank" href="../?qn=(cirque)">Cirque des Sirkas</a> through the
         Spinward Marches sector.
       </li>
       <li>
@@ -481,7 +487,7 @@
     <p>
       The <b><i>Traveller</i></b> game in all forms is owned
       by <a target="_blank" href="http://www.farfuture.net"> Far
-      Future Enterprises</a>. Copyright &copy; 1977 &ndash; 2016 Far Future
+      Future Enterprises</a>. Copyright &copy; 1977 &ndash; 2017 Far Future
       Enterprises. <b><i>Traveller</i></b> is a registered trademark
       of Far Future Enterprises. Far Future permits web sites and
       fanzines for this game, provided it contains this notice, that
@@ -496,7 +502,7 @@
       it.
     </p>
     <p>
-      Materials producted by <b>Digest Group Publications</b> (DGP)
+      Materials produced by <b>Digest Group Publications</b> (DGP)
       are copyright &copy; Roger Sanger. Any use of Digest Group
       Publications' copyrighted material or trademarks anywhere on
       this Web site and its files should not be viewed as a challenge

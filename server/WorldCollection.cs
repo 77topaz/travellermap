@@ -19,25 +19,32 @@ namespace Maps
             errors = new ErrorLogger();
 #endif
         }
-        
+
+        // Overload rather than optional argument to disambiguate for ResourceManager reflection.
+        public WorldCollection(bool isUserData) : this()
+        {
+            IsUserData = isUserData;
+        }
+
+        public bool IsUserData { get; }
         private World[,] worlds = new World[Astrometrics.SectorWidth, Astrometrics.SectorHeight];
         public World this[int x, int y]
         {
             get
             {
                 if (x < 1 || x > Astrometrics.SectorWidth)
-                    throw new ArgumentOutOfRangeException("x");
+                    throw new ArgumentOutOfRangeException(nameof(x));
                 if (y < 1 || y > Astrometrics.SectorHeight)
-                    throw new ArgumentOutOfRangeException("y");
+                    throw new ArgumentOutOfRangeException(nameof(y));
 
                 return worlds[x - 1, y - 1];
             }
             set
             {
                 if (x < 1 || x > Astrometrics.SectorWidth)
-                    throw new ArgumentOutOfRangeException("x");
+                    throw new ArgumentOutOfRangeException(nameof(x));
                 if (y < 1 || y > Astrometrics.SectorHeight)
-                    throw new ArgumentOutOfRangeException("y");
+                    throw new ArgumentOutOfRangeException(nameof(y));
 
                 worlds[x - 1, y - 1] = value;
             }
@@ -63,9 +70,10 @@ namespace Maps
         private ErrorLogger errors = null;
         public ErrorLogger ErrorList { get { return errors; } }
 
-        public void Serialize(TextWriter writer, string mediaType, bool includeHeader = true, bool sscoords = false, WorldFilter filter = null)
+        public void Serialize(TextWriter writer, string mediaType, SectorSerializeOptions options)
         {
-            SectorFileSerializer.ForType(mediaType).Serialize(writer, this.Where(world => filter == null || filter(world)), includeHeader: includeHeader, sscoords: sscoords);
+            SectorFileSerializer.ForType(mediaType).Serialize(writer,
+                options.filter == null ? this : this.Where(world => options.filter(world)), options);
         }
 
         public void Deserialize(Stream stream, string mediaType, ErrorLogger errors = null)
@@ -76,7 +84,7 @@ namespace Maps
             parser.Parse(stream, this, errors);
             if (errors != null && !errors.Empty)
             {
-                errors.Prepend(ErrorLogger.Severity.Warning, string.Format("Parsing as: {0}", parser.Name));
+                errors.Prepend(ErrorLogger.Severity.Warning, $"Parsing as: {parser.Name}");
             }
         }
 

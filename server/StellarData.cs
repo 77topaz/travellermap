@@ -418,7 +418,7 @@ namespace Maps
                 throw new InvalidSystemException("Could not parse as a system");
 
             if (reader.Peek() != -1)
-                throw new InvalidSystemException(string.Format("Saw unexpected character: {0}", (char)reader.Read()));
+                throw new InvalidSystemException($"Saw unexpected character: {(char)reader.Read()}");
 
             return system.ToString(format);
         }
@@ -437,7 +437,6 @@ namespace Maps
             public SeekableStringReader(string s)
             {
                 this.s = s;
-                Position = 0;
             }
 
             public override int Peek()
@@ -450,7 +449,7 @@ namespace Maps
                 return (0 <= Position && Position < s.Length) ? s[Position++] : -1;
             }
 
-            public override int Position { get; set; }
+            public override int Position { get; set; } = 0;
         }
     }
 }

@@ -23,18 +23,18 @@ namespace Maps.API
             public override string DefaultContentType { get { return System.Net.Mime.MediaTypeNames.Text.Xml; } }
 
             private static readonly IReadOnlyDictionary<string, string> SpecialSearches = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase) {
-            { @"(default)", @"~/res/search/Default.json"},
-            { @"(grand tour)", @"~/res/search/GrandTour.json"},
-            { @"(arrival vengeance)", @"~/res/search/ArrivalVengeance.json"},
-            { @"(far frontiers)", @"~/res/search/FarFrontiers.json"},
-            { @"(cirque)", @"~/res/search/Cirque.json"}
-        };
+                { @"(default)", @"~/res/search/Default.json"},
+                { @"(grand tour)", @"~/res/search/GrandTour.json"},
+                { @"(arrival vengeance)", @"~/res/search/ArrivalVengeance.json"},
+                { @"(far frontiers)", @"~/res/search/FarFrontiers.json"},
+                { @"(cirque)", @"~/res/search/Cirque.json"}
+            };
 
             private static readonly Regex UWP_REGEXP = new Regex(@"^\w{7}-\w$");
 
             public override void Process()
             {
-                string query = context.Request.QueryString["q"];
+                string query = Context.Request.QueryString["q"];
                 if (query == null)
                     return;
 
@@ -43,14 +43,14 @@ namespace Maps.API
                 {
                     string path = SpecialSearches[query];
 
-                    if (context.Request.QueryString["jsonp"] != null)
+                    if (Context.Request.QueryString["jsonp"] != null)
                     {
                         // TODO: Does this include the JSONP headers?
                         SendFile(JsonConstants.MediaType, path);
                         return;
                     }
 
-                    if (Accepts(context, JsonConstants.MediaType))
+                    if (Accepts(Context, JsonConstants.MediaType))
                     {
                         SendFile(JsonConstants.MediaType, path);
                         return;
@@ -61,18 +61,28 @@ namespace Maps.API
                 //
                 // Do the search
                 //
-                ResourceManager resourceManager = new ResourceManager(context.Server);
-                SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
+                ResourceManager resourceManager = new ResourceManager(Context.Server);
+                string milieu = GetStringOption("milieu", SectorMap.DEFAULT_MILIEU);
+                SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, milieu);
 
-                query = query.Replace('*', '%'); // Support * and % as wildcards
-                query = query.Replace('?', '_'); // Support ? and _ as wildcards
+                int NUM_RESULTS;
+                IEnumerable<ItemLocation> searchResults;
+                if (query == "(random world)")
+                {
+                    NUM_RESULTS = 1;
+                    searchResults = SearchEngine.PerformSearch(milieu, null, SearchEngine.SearchResultsType.Worlds, NUM_RESULTS, random:true);
+                }
+                else
+                {
+                    query = query.Replace('*', '%'); // Support * and % as wildcards
+                    query = query.Replace('?', '_'); // Support ? and _ as wildcards
 
-                if (UWP_REGEXP.IsMatch(query))
-                    query = "uwp:" + query;
+                    if (UWP_REGEXP.IsMatch(query))
+                        query = "uwp:" + query;
 
-                const int NUM_RESULTS = 160;
-
-                var searchResults = SearchEngine.PerformSearch(query, SearchEngine.SearchResultsType.Default, NUM_RESULTS);
+                    NUM_RESULTS = 160;
+                    searchResults = SearchEngine.PerformSearch(milieu, query, SearchEngine.SearchResultsType.Default, NUM_RESULTS);
+                }
 
                 SearchResults resultsList = new SearchResults();
 
@@ -85,7 +95,7 @@ namespace Maps.API
                         .Take(NUM_RESULTS));
                 }
 
-                SendResult(context, resultsList);
+                SendResult(Context, resultsList);
             }
         }
     }
@@ -97,11 +107,6 @@ namespace Maps.API.Results
     [XmlRoot(ElementName = "results")]
     public class SearchResults
     {
-        public SearchResults()
-        {
-            Items = new List<Item>();
-        }
-
         [XmlAttribute]
         public int Count { get { return Items.Count; } set { /* We only want to serialize, not deserialize */ } }
 
@@ -113,7 +118,7 @@ namespace Maps.API.Results
         [XmlElement(ElementName = "sector", Type = typeof(SectorResult))]
         [XmlElement(ElementName = "label", Type = typeof(LabelResult))]
 
-        public List<Item> Items { get; }
+        public List<Item> Items { get; } = new List<Item>();
 
         public void Add(Item item)
         {
@@ -258,7 +263,7 @@ namespace Maps.API.Results
                 r.Name = label.Label;
                 r.SectorX = l.Sector.X;
                 r.SectorY = l.Sector.Y;
-                r.HexX = l.Hex.X;;
+                r.HexX = l.Hex.X;
                 r.HexY = l.Hex.Y;
                 r.Scale =
                     label.Radius > 80 ? 4 :
@@ -269,7 +274,7 @@ namespace Maps.API.Results
                 return r;
             }
 
-            throw new ArgumentException(string.Format("Unexpected result type: {0}", location.GetType().Name), "location");
+            throw new ArgumentException($"Unexpected result type: {location.GetType().Name}", nameof(location));
         }
     }
 }

@@ -46,7 +46,7 @@ namespace Maps.API
 
                 IEnumerable<World> PathFinder.Map<World>.Adjacent(World world)
                 {
-                    if (world == null) throw new ArgumentNullException("world");
+                    if (world == null) throw new ArgumentNullException(nameof(world));
                     foreach (World w in new HexSelector(map, manager, Astrometrics.CoordinatesToLocation(world.Coordinates), Jump).Worlds)
                     {
                         // Exclude destination from filters.
@@ -63,8 +63,8 @@ namespace Maps.API
 
                 int PathFinder.Map<World>.Distance(World a, World b)
                 {
-                    if (a == null) throw new ArgumentNullException("a");
-                    if (b == null) throw new ArgumentNullException("b");
+                    if (a == null) throw new ArgumentNullException(nameof(a));
+                    if (b == null) throw new ArgumentNullException(nameof(b));
                     return Astrometrics.HexDistance(a.Coordinates, b.Coordinates);
                 }
             }
@@ -73,7 +73,7 @@ namespace Maps.API
             {
                 string query = context.Request.QueryString[field];
                 if (string.IsNullOrWhiteSpace(query))
-                    throw new HttpError(400, "Bad Request", string.Format("Missing {0} location", field));
+                    throw new HttpError(400, "Bad Request", $"Missing {field} location");
 
                 query = query.Trim();
 
@@ -82,9 +82,9 @@ namespace Maps.API
                 {
                     int x = GetIntOption("x", 0);
                     int y = GetIntOption("y", 0);
-                    WorldLocation loc = SearchEngine.FindNearestWorldMatch(query, x, y);
+                    WorldLocation loc = SearchEngine.FindNearestWorldMatch(query, GetStringOption("milieu"), x, y);
                     if (loc == null)
-                        throw new HttpError(404, "Not Found", string.Format("Location not found: {0}", query));
+                        throw new HttpError(404, "Not Found", $"Location not found: {query}");
 
                     Sector loc_sector;
                     World loc_world;
@@ -94,30 +94,30 @@ namespace Maps.API
 
                 Sector sector = map.FromName(match.Groups["sector"].Value);
                 if (sector == null)
-                    throw new HttpError(404, "Not Found", string.Format("Sector not found: {0}", sector));
+                    throw new HttpError(404, "Not Found", $"Sector not found: {sector}");
 
                 string hexString = match.Groups["hex"].Value;
                 Hex hex = new Hex(hexString);
                 if (!hex.IsValid)
-                    throw new HttpError(400, "Not Found", string.Format("Invalid hex: {0}", hexString));
+                    throw new HttpError(400, "Not Found", $"Invalid hex: {hexString}");
 
                 World world = sector.GetWorlds(manager)[hex.ToInt()];
                 if (world == null)
-                    throw new HttpError(404, "Not Found", string.Format("No such world: {0} {1}", sector.Names[0].Text, hexString));
+                    throw new HttpError(404, "Not Found", $"No such world: {sector.Names[0].Text} {hexString}");
 
                 return world;
             }
 
             public override void Process()
             {
-                ResourceManager resourceManager = new ResourceManager(context.Server);
+                ResourceManager resourceManager = new ResourceManager(Context.Server);
                 SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
 
-                World startWorld = ResolveLocation(context, "start", resourceManager, map);
+                World startWorld = ResolveLocation(Context, "start", resourceManager, map);
                 if (startWorld == null)
                     return;
 
-                World endWorld = ResolveLocation(context, "end", resourceManager, map);
+                World endWorld = ResolveLocation(Context, "end", resourceManager, map);
                 if (endWorld == null)
                     return;
 
@@ -133,7 +133,7 @@ namespace Maps.API
                 if (route == null)
                     throw new HttpError(404, "Not Found", "No route found");
 
-                SendResult(context, route.Select(w => new Results.RouteStop(w)).ToList());
+                SendResult(Context, route.Select(w => new Results.RouteStop(w)).ToList());
             }
         }
     }
@@ -146,7 +146,7 @@ namespace Maps.API.Results
         public RouteStop() { }
         public RouteStop(World w)
         {
-            if (w == null) throw new ArgumentNullException("w");
+            if (w == null) throw new ArgumentNullException(nameof(w));
 
             Sector = w.SectorName;
             SectorX = w.Sector.X;
@@ -158,6 +158,12 @@ namespace Maps.API.Results
             Hex = w.Hex;
             HexX = w.X;
             HexY = w.Y;
+
+            UWP = w.UWP;
+            PBG = w.PBG;            
+            Zone = w.Zone;
+            AllegianceName = w.AllegianceName;
+
         }
 
         public string Sector { get; set; }
@@ -170,5 +176,10 @@ namespace Maps.API.Results
         public string Hex { get; set; }
         public int HexX { get; set; }
         public int HexY { get; set; }
+
+        public string UWP { get; set; }
+        public string PBG { get; set; }
+        public string Zone { get; set; }
+        public string AllegianceName { get; set; }
     }
 }

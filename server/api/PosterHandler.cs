@@ -21,7 +21,7 @@ namespace Maps.API
                 // NOTE: This (re)initializes a static data structure used for
                 // resolving names into sector locations, so needs to be run
                 // before any other objects (e.g. Worlds) are loaded.
-                ResourceManager resourceManager = new ResourceManager(context.Server);
+                ResourceManager resourceManager = new ResourceManager(Context.Server);
 
                 Selector selector;
                 RectangleF tileRect = new RectangleF();
@@ -53,7 +53,7 @@ namespace Maps.API
                     tileRect.Width += 1;
                     tileRect.Height += 1;
 
-                    title = string.Format("Poster ({0},{1}) - ({2},{3})", x1, y1, x2, y2);
+                    title = $"Poster ({x1},{y1}) - ({x2},{y2})";
                     clipOutsectorBorders = true;
                 }
                 else if (HasOption("domain"))
@@ -87,7 +87,7 @@ namespace Maps.API
                         case "jg": x = 160; y = 0; w = 2; h = 2; title = "Judges Guild"; break;
 
                         default:
-                            throw new HttpError(404, "Not Found", string.Format("Unknown domain: {0}", domain));
+                            throw new HttpError(404, "Not Found", $"Unknown domain: {domain}");
                     }
 
                     int x1 = (int)Math.Round(x * Astrometrics.SectorWidth - Astrometrics.ReferenceHex.X + 1);
@@ -121,11 +121,11 @@ namespace Maps.API
                     Sector sector = null;
                     options = options & ~MapOptions.SectorGrid;
 
-                    if (context.Request.HttpMethod == "POST")
+                    if (Context.Request.HttpMethod == "POST")
                     {
                         bool lint = GetBoolOption("lint", defaultValue: false);
                         ErrorLogger errors = new ErrorLogger();
-                        sector = GetPostedSector(context.Request, errors);
+                        sector = GetPostedSector(Context.Request, errors);
                         if (lint && !errors.Empty)
                             throw new HttpError(400, "Bad Request", errors.ToString());
 
@@ -147,7 +147,7 @@ namespace Maps.API
 
                         sector = map.FromName(sectorName);
                         if (sector == null)
-                            throw new HttpError(404, "Not Found", string.Format("The specified sector '{0}' was not found.", sectorName));
+                            throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
 
                         title = sector.Names[0].Text;
                     }
@@ -158,7 +158,7 @@ namespace Maps.API
                         string subsector = GetStringOption("subsector");
                         int index = sector.SubsectorIndexFor(subsector);
                         if (index == -1)
-                            throw new HttpError(404, "Not Found", string.Format("The specified subsector '{0}' was not found.", subsector));
+                            throw new HttpError(404, "Not Found", $"The specified subsector '{subsector}' was not found.");
 
                         selector = new SubsectorSelector(resourceManager, sector, index);
 
@@ -166,7 +166,7 @@ namespace Maps.API
 
                         options &= ~(MapOptions.SectorGrid | MapOptions.SubsectorGrid);
 
-                        title = string.Format("{0} - Subsector {1}", title, 'A' + index);
+                        title = $"{title} - Subsector {'A' + index}";
                     }
                     else if (sector != null && HasOption("quadrant") && GetStringOption("quadrant").Length > 0)
                     {
@@ -179,7 +179,7 @@ namespace Maps.API
                             case "gamma": index = 2; quadrant = "Gamma"; break;
                             case "delta": index = 3; quadrant = "Delta"; break;
                             default:
-                                throw new HttpError(400, "Bad Request", string.Format("The specified quadrant '{0}' is invalid.", quadrant));
+                                throw new HttpError(400, "Bad Request", $"The specified quadrant '{quadrant}' is invalid.");
                         }
 
                         selector = new QuadrantSelector(resourceManager, sector, index);
@@ -187,7 +187,7 @@ namespace Maps.API
 
                         options &= ~(MapOptions.SectorGrid | MapOptions.SubsectorGrid | MapOptions.SectorsMask);
 
-                        title = string.Format("{0} - {1} Quadrant", title, quadrant);
+                        title = $"{title} - {quadrant} Quadrant";
                     }
                     else
                     {
@@ -241,7 +241,7 @@ namespace Maps.API
 
                 RenderContext ctx = new RenderContext(resourceManager, selector, tileRect, scale, options, stylesheet, tileSize);
                 ctx.ClipOutsectorBorders = clipOutsectorBorders;
-                ProduceResponse(context, title, ctx, new Size(bitmapWidth, bitmapHeight), rot, translateX, translateY);
+                ProduceResponse(Context, title, ctx, new Size(bitmapWidth, bitmapHeight), rot, translateX, translateY);
             }
         }
     }

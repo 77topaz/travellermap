@@ -1,3 +1,4 @@
+/*global Traveller, Handlebars */
 (function(global) {
   'use strict';
 
@@ -38,13 +39,22 @@
       world.population = exp >= 0 && mult >= 0 ? Math.pow(10, exp) * mult : 0;
       if (world.population >= 1e9)
         world.hipop = true;
+
+      // U+2212 MINUS SIGN
+      world.ix = world.ix.replace('-', '\u2212');
+      world.ex = world.ex.replace('-', '\u2212');
+
+      // Special formatting
+      world.ix = world.ix.replace(/[{} ]/g, '');
+      world.ex = world.ex.replace(/[() ]/g, '');
+      world.cx = world.cx.replace(/[\[\] ]/g, '');
+
       sector.worlds.push(world);
     });
 
     sector.worlds.sort(function(a, b) { return cmp(a.hex, b.hex); });
 
-    var LINES = 128, COLUMNS = 2;
-
+    var LINES = 114, COLUMNS = 2;
     sector.pages = partition(sector.worlds, LINES*COLUMNS)
       .map(function(a) { return {columns: partition(a, LINES)
                                  .map(function(w) { return { worlds: w }; })}; });
@@ -58,6 +68,9 @@
     sector.name = metadata.Names[0].Text;
 
     sector.credits = metadata.Credits;
+
+    // TM's Y coordinates are inverted relative to FFE publications.
+    metadata.Y = -metadata.Y;
 
     return sector;
   }
@@ -74,14 +87,16 @@
   window.addEventListener('DOMContentLoaded', function() {
     var sectors;
     sectors = [
-      /*   */ 'ziaf', 'gvur', 'tugl', 'prov', 'wind', 'mesh', 'mend', 'amdu',
-      'farf', 'fore', 'spin', 'dene', 'corr', 'vlan', 'lish', 'anta', 'empt',
-      'vang', 'beyo', 'troj', 'reft', 'gush', 'dagu', 'core', 'forn', 'ley',  'gate',
-      'thet', /*   */ 'rift', 'verg', 'ilel', 'zaru', 'mass', 'delp', 'glim', 'cruc',
-      /*           */ 'hlak', 'eali', 'reav', 'daib', 'dias', 'olde', 'hint',
-      /*           */ 'stai', 'iwah', 'dark', 'magy', 'solo', 'alph', 'spic',
-      /*           */ 'akti', 'uist', 'ustr'
+      /*                                                         */ 'gash','tren',
+      /*               */ 'ziaf','gvur','tugl','prov','wind','mesh','mend','amdu',
+      /*         */'farf','fore','spin','dene','corr','vlan','lish','anta','empt',
+      /*         */'vang','beyo','troj','reft','gush','dagu','core','forn','ley', 'gate',
+      'thet',/*               */ 'rift','verg','ilel','zaru','mass','delp','glim','cruc',
+      /*                      */ 'hlak','eali','reav','daib','dias','olde','hint',
+      /*                      */ 'stai','iwah','dark','magy','solo','alph','spic',
+      /*                      */ 'akti','uist','ustr','cano','alde','newo','lang',
     ];
+
     Promise.all(sectors.map(function(name) {
       return Promise.all([
         name,
@@ -95,9 +110,11 @@
     var data = {};
 
     data.charted_space_src = Traveller.MapService.makeURL(
-      '/api/poster', { x1: -256, x2: 255, y1: -159, y2: 160,
-                       options: 41975, scale: 8, style: 'print',
-                       dimunofficial: 1, rotation: 3 });
+      '/api/poster', {
+        x1: -256, x2: 255, y1: -159, y2: 160,
+        options: 41975, scale: 8, style: 'print',
+        accept: 'image/svg+xml',
+        dimunofficial: 1, rotation: 3 });
 
     var index = [];
     var credits = [];
@@ -107,7 +124,11 @@
       var sector = parseSector(data, metadata);
 
       sector.img_src = Traveller.MapService.makeURL(
-        '/api/poster', {sector: name, style: 'print', dpr: 2});
+        '/api/poster', {
+          sector: name,
+          style: 'print',
+          accept: 'image/svg+xml'
+        });
 
       var short_name = sector.name.replace(/^The /, '');
 

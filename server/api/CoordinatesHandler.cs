@@ -26,7 +26,7 @@ namespace Maps.API
                 ResourceManager resourceManager = new ResourceManager(Context.Server);
                 SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
 
-                Location loc = new Location(map.FromName("Spinward Marches").Location, 1910);
+                Location loc = Location.Empty;
 
                 // Accept either sector [& hex] or sx,sy [& hx,hy] or x,y
                 if (HasOption("sector"))
@@ -34,14 +34,14 @@ namespace Maps.API
                     string sectorName = GetStringOption("sector");
                     Sector sector = map.FromName(sectorName);
                     if (sector == null)
-                        throw new HttpError(404, "Not Found", string.Format("The specified sector '{0}' was not found.", sectorName));
+                        throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
 
                     if (HasOption("subsector"))
                     {
                         string subsector = GetStringOption("subsector");
                         int index = sector.SubsectorIndexFor(subsector);
                         if (index == -1)
-                            throw new HttpError(404, "Not Found", string.Format("The specified subsector '{0}' was not found.", subsector));
+                            throw new HttpError(404, "Not Found", $"The specified subsector '{subsector}' was not found.");
                         int ssx = index % 4;
                         int ssy = index / 4;
                         Hex hex = new Hex(
@@ -73,7 +73,7 @@ namespace Maps.API
                 result.hy = loc.Hex.Y;
                 result.x = coords.X;
                 result.y = coords.Y;
-                SendResult(context, result);
+                SendResult(Context, result);
             }
         }
     }

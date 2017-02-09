@@ -19,6 +19,8 @@ namespace Maps.Admin
 
             string sectorName = GetStringOption(context, "sector");
             string type = GetStringOption(context, "type");
+            string milieu = GetStringOption(context, "milieu");
+            string tag = GetStringOption(context, "tag");
 
             // NOTE: This (re)initializes a static data structure used for 
             // resolving names into sector locations, so needs to be run
@@ -30,6 +32,8 @@ namespace Maps.Admin
                               where (sectorName == null || sector.Names[0].Text.StartsWith(sectorName, ignoreCase: true, culture: CultureInfo.InvariantCulture))
                               && (sector.DataFile != null)
                               && (type == null || sector.DataFile.Type == type)
+                              && (milieu == null || sector.CanonicalMilieu == milieu)
+                              && (tag == null || sector.Tags.Contains(tag))
                               && (sector.Tags.Contains("OTU") || sector.Tags.Contains("Apocryphal") || sector.Tags.Contains("Faraway"))
                               orderby sector.Names[0].Text
                               select sector;
@@ -44,14 +48,14 @@ namespace Maps.Admin
                 {
                     double pop = worlds.Select(w => w.Population).Sum();
                     if (pop > 0)
-                        context.Response.Output.WriteLine("{0} world(s) - population: {1:#,###.##} billion", worlds.Count(), pop / 1e9);
+                        context.Response.Output.WriteLine($"{worlds.Count()} world(s) - population: {pop / 1e9:#,###.##} billion");
                     else
-                        context.Response.Output.WriteLine("{0} world(s) - population: N/A", worlds.Count());
+                        context.Response.Output.WriteLine($"{worlds.Count()} world(s) - population: N/A");
                     worlds.ErrorList.Report(context.Response.Output);
                 }
                 else
                 {
-                    context.Response.Output.WriteLine("{0} world(s)", 0);
+                    context.Response.Output.WriteLine("0 world(s)");
                 }
 
                 foreach (IAllegiance item in sector.Borders.AsEnumerable<IAllegiance>()
@@ -61,8 +65,7 @@ namespace Maps.Admin
                     if (string.IsNullOrWhiteSpace(item.Allegiance))
                         continue;
                     if (sector.GetAllegianceFromCode(item.Allegiance) == null)
-                        context.Response.Output.WriteLine("Undefined allegiance code: {0} (on {1})", item.Allegiance,
-                            item.GetType().Name);
+                        context.Response.Output.WriteLine($"Undefined allegiance code: {item.Allegiance} (on {item.GetType().Name})");
                 }
 
                 foreach (var route in sector.Routes)
@@ -75,8 +78,10 @@ namespace Maps.Admin
                     Location endLocation = new Location(endSector, route.End);
                     int distance = Astrometrics.HexDistance(Astrometrics.LocationToCoordinates(startLocation),
                         Astrometrics.LocationToCoordinates(endLocation));
-                    if (distance > 4)
-                        context.Response.Output.WriteLine("Warning: Route length {0}: {1}", distance, route.ToString());
+                    if (distance == 0)
+                        context.Response.Output.WriteLine($"Error: Route length {distance}: {route.ToString()}");
+                    else if (distance > 4)
+                        context.Response.Output.WriteLine($"Warning: Route length {distance}: {route.ToString()}");
                     /*
                      * This fails because of routes that use e.g. 3341-style coordinates
                      * It will also be extremely slow due to loading world lists w/o caching
@@ -85,7 +90,7 @@ namespace Maps.Admin
                                             if (w != null)
                                             {
                                                 if (w[route.StartPoint.X, route.StartPoint.Y] == null)
-                                                    context.Response.Output.WriteLine("Route start empty hex: {0}", route.ToString());
+                                                    context.Response.Output.WriteLine($"Route start empty hex: {route.ToString()}");
                                             }
                                         }
                                         {
@@ -93,7 +98,7 @@ namespace Maps.Admin
                                             if (w != null)
                                             {
                                                 if (w[route.EndPoint.X, route.EndPoint.Y] == null)
-                                                    context.Response.Output.WriteLine("Route end empty hex: {0}", route.ToString());
+                                                    context.Response.Output.WriteLine($"Route end empty hex: {route.ToString()}");
                                             }
                                         }
                                         */

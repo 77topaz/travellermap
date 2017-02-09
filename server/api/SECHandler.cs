@@ -2,6 +2,7 @@
 using System.Net.Mime;
 using System.Text;
 using System.Web;
+using Maps.Serialization;
 
 namespace Maps.API
 {
@@ -22,22 +23,24 @@ namespace Maps.API
                 // NOTE: This (re)initializes a static data structure used for 
                 // resolving names into sector locations, so needs to be run
                 // before any other objects (e.g. Worlds) are loaded.
-                ResourceManager resourceManager = new ResourceManager(context.Server);
+                ResourceManager resourceManager = new ResourceManager(Context.Server);
                 SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
                 Sector sector;
 
-                bool sscoords = GetBoolOption("sscoords", defaultValue: false);
-                bool includeMetadata = GetBoolOption("metadata", defaultValue: true);
-                bool includeHeader = GetBoolOption("header", defaultValue: true);
+                SectorSerializeOptions options = new Serialization.SectorSerializeOptions();
+                options.sscoords = GetBoolOption("sscoords", defaultValue: false);
+                options.includeMetadata = GetBoolOption("metadata", defaultValue: true);
+                options.includeHeader = GetBoolOption("header", defaultValue: true);
+                options.includeRoutes = GetBoolOption("routes", defaultValue: false);
 
-                if (context.Request.HttpMethod == "POST")
+                if (Context.Request.HttpMethod == "POST")
                 {
                     bool lint = GetBoolOption("lint", defaultValue: false);
                     var errors = lint ? new ErrorLogger() : null;
-                    sector = new Sector(context.Request.InputStream, new ContentType(context.Request.ContentType).MediaType, errors);
+                    sector = new Sector(Context.Request.InputStream, new ContentType(Context.Request.ContentType).MediaType, errors);
                     if (lint && !errors.Empty)
                         throw new HttpError(400, "Bad Request", errors.ToString());
-                    includeMetadata = false;
+                    options.includeMetadata = false;
                 }
                 else if (HasOption("sx") && HasOption("sy"))
                 {
@@ -47,7 +50,7 @@ namespace Maps.API
                     sector = map.FromLocation(sx, sy);
 
                     if (sector == null)
-                        throw new HttpError(404, "Not Found", string.Format("The sector at {0},{1} was not found.", sx, sy));
+                        throw new HttpError(404, "Not Found", $"The sector at {sx},{sy} was not found.");
                 }
                 else if (HasOption("sector"))
                 {
@@ -55,29 +58,28 @@ namespace Maps.API
                     sector = map.FromName(sectorName);  
 
                     if (sector == null)
-                        throw new HttpError(404, "Not Found", string.Format("The specified sector '{0}' was not found.", sectorName));
+                        throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
                 }
                 else
                 {
                     throw new HttpError(400, "Bad Request", "No sector specified.");
                 }
 
-                WorldFilter filter = null;
                 if (HasOption("subsector"))
                 {
                     string subsector = GetStringOption("subsector");
                     int index = sector.SubsectorIndexFor(subsector);
                     if (index == -1)
-                        throw new HttpError(404, "Not Found", string.Format("The specified subsector '{0}' was not found.", subsector));
-                    filter = (World world) => (world.Subsector == index);
+                        throw new HttpError(404, "Not Found", $"The specified subsector '{subsector}' was not found.");
+                    options.filter = (World world) => (world.Subsector == index);
                 }
                 else if (HasOption("quadrant"))
                 {
                     string quadrant = GetStringOption("quadrant");
                     int index = Sector.QuadrantIndexFor(quadrant);
                     if (index == -1)
-                        throw new HttpError(400, "Bad Request", string.Format("The specified quadrant '{0}' is invalid.", quadrant));
-                    filter = (World world) => (world.Quadrant == index);
+                        throw new HttpError(400, "Bad Request", $"The specified quadrant '{quadrant}' is invalid.");
+                    options.filter = (World world) => (world.Quadrant == index);
                 }
 
                 string mediaType = GetStringOption("type");
@@ -98,10 +100,10 @@ namespace Maps.API
                 {
                     // Content
                     //
-                    sector.Serialize(resourceManager, writer, mediaType, includeMetadata: includeMetadata, includeHeader: includeHeader, sscoords: sscoords, filter: filter);
+                    sector.Serialize(resourceManager, writer, mediaType, options);
                     data = writer.ToString();
                 }
-                SendResult(context, data, encoding);
+                SendResult(Context, data, encoding);
             }
         }
     }

@@ -19,8 +19,8 @@ namespace Maps.API
 {
     public interface ITypeAccepter
     {
-        IEnumerable<string> AcceptTypes(HttpContext context);
-        bool Accepts(HttpContext context, string mediaType);
+        IEnumerable<string> AcceptTypes(HttpContext context, bool ignoreHeaderFallbacks = false);
+        bool Accepts(HttpContext context, string mediaType, bool ignoreHeaderFallbacks = false);
     }
 
     internal abstract class DataHandlerBase : HandlerBase, IHttpHandler
@@ -32,10 +32,7 @@ namespace Maps.API
         public void ProcessRequest(HttpContext context)
         {
             if (context == null)
-                throw new ArgumentNullException("context");
-
-            if (!ServiceConfiguration.CheckEnabled(ServiceName, context.Response))
-                return;
+                throw new ArgumentNullException(nameof(context));
 
             // Configure caching
             if (context.Request.HttpMethod == "POST")
@@ -89,13 +86,12 @@ namespace Maps.API
         {
             public DataResponder(HttpContext context)
             {
-                this.context = context;
+                Context = context;
             }
 
             public abstract string DefaultContentType { get; }
 
-            protected HttpContext context;
-            public HttpContext Context { get { return context; } }
+            public HttpContext Context { get; private set; }
 
             public abstract void Process();
 
@@ -211,7 +207,7 @@ namespace Maps.API
             #region Option Parsing
             protected bool HasOption(string name)
             {
-                return HasOption(name, Defaults(context));
+                return HasOption(name, Defaults(Context));
             }
             public bool HasOption(string name, IDictionary<string, object> queryDefaults)
             {
@@ -220,7 +216,7 @@ namespace Maps.API
 
             protected string GetStringOption(string name, string defaultValue = null)
             {
-                return GetStringOption(name, Defaults(context), defaultValue);
+                return GetStringOption(name, Defaults(Context), defaultValue);
             }
             public string GetStringOption(string name, IDictionary<string, object> queryDefaults, string defaultValue = null)
             {
@@ -241,7 +237,7 @@ namespace Maps.API
 
             protected int GetIntOption(string name, int defaultValue)
             {
-                return GetIntOption(name, Defaults(context), defaultValue);
+                return GetIntOption(name, Defaults(Context), defaultValue);
             }
             public int GetIntOption(string name, IDictionary<string, object> queryDefaults, int defaultValue)
             {
@@ -253,7 +249,7 @@ namespace Maps.API
 
             protected double GetDoubleOption(string name, double defaultValue)
             {
-                return GetDoubleOption(name, Defaults(context), defaultValue);
+                return GetDoubleOption(name, Defaults(Context), defaultValue);
             }
             public double GetDoubleOption(string name, IDictionary<string, object> queryDefaults, double defaultValue)
             {
@@ -265,8 +261,9 @@ namespace Maps.API
 
             protected bool GetBoolOption(string name, bool defaultValue)
             {
-                return GetBoolOption(name, Defaults(context), defaultValue);
+                return GetBoolOption(name, Defaults(Context), defaultValue);
             }
+
             public bool GetBoolOption(string name, IDictionary<string, object> queryDefaults, bool defaultValue)
             {
                 int temp;
@@ -292,22 +289,22 @@ namespace Maps.API
                 if (HasOption("x") && HasOption("y"))
                     return Astrometrics.CoordinatesToLocation(GetIntOption("x", 0), GetIntOption("y", 0));
 
-                throw new ArgumentException("Context is missing required parameters", "context");
+                throw new ArgumentException("Context is missing required parameters", nameof(Context));
             }
 
             protected void ParseOptions(ref MapOptions options, ref Stylesheet.Style style)
             {
-                ParseOptions(context.Request, Defaults(context), ref options, ref style);
+                ParseOptions(Context.Request, Defaults(Context), ref options, ref style);
             }
 
-            private static readonly IReadOnlyDictionary<string, Stylesheet.Style> s_nameToStyle = new Dictionary<string, Stylesheet.Style>() {
-            { "poster",Stylesheet.Style.Poster },
-            { "atlas" ,Stylesheet.Style.Atlas },
-            { "print" , Stylesheet.Style.Print },
-            { "candy" ,Stylesheet.Style.Candy },
-            { "draft" ,Stylesheet.Style.Draft },
-            { "fasa"  ,Stylesheet.Style.FASA },
-        };
+            private static readonly IReadOnlyDictionary<string, Stylesheet.Style> s_nameToStyle = new Dictionary<string, Stylesheet.Style> {
+                { "poster",Stylesheet.Style.Poster },
+                { "atlas" ,Stylesheet.Style.Atlas },
+                { "print" , Stylesheet.Style.Print },
+                { "candy" ,Stylesheet.Style.Candy },
+                { "draft" ,Stylesheet.Style.Draft },
+                { "fasa"  ,Stylesheet.Style.FASA },
+            };
 
             public void ParseOptions(HttpRequest request, IDictionary<string, object> queryDefaults, ref MapOptions options, ref Stylesheet.Style style)
             {
@@ -325,7 +322,7 @@ namespace Maps.API
                 {
                     string opt = GetStringOption("style", queryDefaults).ToLowerInvariant();
                     if (!s_nameToStyle.ContainsKey(opt))
-                        throw new HttpError(400, "Bad Request", String.Format("Invalid style option: {0}", opt));
+                        throw new HttpError(400, "Bad Request", $"Invalid style option: {opt}");
                     style = s_nameToStyle[opt];
                 }
             }
@@ -334,20 +331,20 @@ namespace Maps.API
 
             #region ITypeAccepter
             // ITypeAccepter
-            public bool Accepts(HttpContext context, string mediaType)
+            public bool Accepts(HttpContext context, string mediaType, bool ignoreHeaderFallbacks = false)
             {
-                return AcceptTypes(context).Contains(mediaType);
+                return AcceptTypes(context, ignoreHeaderFallbacks).Contains(mediaType);
             }
 
             // ITypeAccepter
-            public IEnumerable<string> AcceptTypes(HttpContext context)
+            public IEnumerable<string> AcceptTypes(HttpContext context, bool ignoreHeaderFallbacks = false)
             {
                 IDictionary<string, object> queryDefaults = null;
                 if (context.Items.Contains("RouteData"))
-                    queryDefaults = (context.Items["RouteData"] as System.Web.Routing.RouteData).Values;
+                    queryDefaults = (context.Items["RouteData"] as RouteData).Values;
 
                 if (context.Request["accept"] != null)
-                    yield return context.Request["accept"];
+                    yield return context.Request["accept"].Replace(' ', '+'); // Hack to allow "image/svg+xml" w/o escaping
 
                 if (context.Request.Headers["accept"] != null)
                     yield return context.Request.Headers["accept"];
@@ -355,7 +352,7 @@ namespace Maps.API
                 if (queryDefaults != null && queryDefaults.ContainsKey("accept"))
                     yield return queryDefaults["accept"].ToString();
 
-                if (context.Request.AcceptTypes != null)
+                if (!ignoreHeaderFallbacks && context.Request.AcceptTypes != null)
                 {
                     foreach (var type in context.Request.AcceptTypes)
                         yield return type;

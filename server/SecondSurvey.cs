@@ -21,7 +21,7 @@ namespace Maps
             if (0 <= c && c < HEX.Length)
                 return HEX[c];
 
-            throw new ArgumentOutOfRangeException("c", string.Format(CultureInfo.InvariantCulture, "Value out of range: '{0}'", c));
+            throw new ArgumentOutOfRangeException(nameof(c), c, "Expected value in eHex range");
         }
 
         public static int FromHex(char c, int? valueIfUnknown = null)
@@ -39,7 +39,7 @@ namespace Maps
                 case 'O': return 0; // Typo found in some data files
                 case 'I': return 1; // Typo found in some data files
             }
-            throw new ArgumentOutOfRangeException("c", string.Format(CultureInfo.InvariantCulture, "Character out of range: '{0}'", c));
+            throw new ArgumentOutOfRangeException(nameof(c), c, "Expected eHex value");
         }
         #endregion // eHex
 
@@ -90,6 +90,9 @@ namespace Maps
             { "*.X", "W" },   // Zhodani Relay Station
             { "*.Y", "D" },   // Zhodani Depot
             { "*.Z", "KM" },  // Zhodani Naval/Military Base
+            { "Sc.H", "H" },  // Hiver Supply Base
+            { "*.I", "I" },  // Interface
+            { "*.T", "T" },  // Terminus
         };
 
         public static string DecodeLegacyBases(string allegiance, string code)
@@ -127,8 +130,12 @@ namespace Maps
             { "Zh.W", "X" },  // Zhodani Relay Station
             { "*.W", "W" },   // Imperial Scout Way Station
             { "Zh.KM", "Z" }, // Zhodani Naval/Military Base
+            // TNE
+            { "Sc.H", "H" },  // Hiver Supply Base
+            { "*.I", "I" },  // Interface
+            { "*.T", "T" },  // Terminus
         };
-        
+
         public static string EncodeLegacyBases(string allegiance, string bases)
         {
             allegiance = AllegianceCodeToBaseAllegianceCode(allegiance);
@@ -161,6 +168,7 @@ namespace Maps
             { "So", "SoCf" },
             { "Va", "NaVa" },
             { "Zh", "ZhCo" },
+            { "??", "XXXX" },
             { "--", "XXXX" }
         };
 
@@ -215,6 +223,7 @@ namespace Maps
         // TODO: Parse this from data file
         private static readonly AllegianceDictionary s_t5Allegiances = new AllegianceDictionary {
             // T5Code, LegacyCode, BaseCode, Name
+            #region T5SS Allegiances
             // Allegiance Table Begin
             { "3EoG", "Ga", "Ga", "Third Empire of Gashikan" },
             { "4Wor", "Fw", "FW", "Four Worlds" },
@@ -224,8 +233,8 @@ namespace Maps
             { "AsIf", "As", "As", "Iyeaao'fte" }, // (Tlaukhu client state)
             { "AsMw", "As", "As", "Aslan Hierate, single multiple-world clan dominates" },
             { "AsOf", "As", "As", "Oleaiy'fte" }, // (Tlaukhu client state)
-            { "AsSF", "As", "As", "Aslan Hierate, small facility" }, // (temporary)
             { "AsSc", "As", "As", "Aslan Hierate, multiple clans split control" },
+            { "AsSF", "As", "As", "Aslan Hierate, small facility" }, // (temporary)
             { "AsT0", "A0", "As", "Aslan Hierate, Tlaukhu control, Yerlyaruiwo (1), Hrawoao (13), Eisohiyw (14), Ferekhearl (19)" },
             { "AsT1", "A1", "As", "Aslan Hierate, Tlaukhu control, Khauleairl (2), Estoieie' (16), Toaseilwi (22)" },
             { "AsT2", "A2", "As", "Aslan Hierate, Tlaukhu control, Syoisuis (3)" },
@@ -244,10 +253,10 @@ namespace Maps
             { "AsXX", "As", "As", "Aslan Hierate, unknown" },
             { "Bium", "Bi", "B", "The Biumvirate" },
             { "BlSo", "Bs", null, "Belgardian Sojurnate" },
-            { "CAEM", "Es", null, "Comsentient Alliance, Eslyat Magistracy" },
-            { "CAKT", "Kt", null, "Comsentient Alliance, Kajaani Triumverate" },
-            { "CAin", "Co", null, "Comsentient Alliance" }, // independent
             { "CaAs", "Cb", null, "Carrillian Assembly" },
+            { "CAEM", "Es", null, "Comsentient Alliance, Eslyat Magistracy" },
+            { "CAin", "Co", null, "Comsentient Alliance" }, // independent
+            { "CAKT", "Kt", null, "Comsentient Alliance, Kajaani Triumverate" },
             { "CaPr", "Ca", null, "Principality of Caledon" },
             { "CaTe", "Ct", null, "Carter Technocracy" },
             { "CoBa", "Ba", "Ba", "Confederation of Bammesuka" },
@@ -260,6 +269,8 @@ namespace Maps
             { "CyUn", "Cu", null, "Cytralin Unity" },
             { "DaCf", "Da", null, "Darrian Confederation" },
             { "DeHg", "Dh", "D", "Descarothe Hegemony" },
+            { "DeNo", "Dn", null, "Demos of Nobles" },
+            { "DiGr", "Dg", null, "Dienbach Grüpen" },
             { "DiWb", "Dw", null, "Die Weltbund" },
             { "DoAl", "Az", "A", "Domain of Alntzar" },
             { "DuCf", "Cd", null, "Confederation of Duncinae" },
@@ -298,6 +309,7 @@ namespace Maps
             { "ImVd", "Ve", "Im", "Third Imperium, Vegan Autonomous District" },
             { "IsDo", "Id", null, "Islaiat Dominate" },
             { "JAOz", "Jo", "Jp", "Julian Protectorate, Alliance of Ozuvon" },
+            { "JaPa", "Ja", null, "Jarnac Pashalic" },
             { "JAsi", "Ja", "Jp", "Julian Protectorate, Asimikigir Confederation" },
             { "JCoK", "Jc", "Jp", "Julian Protectorate, Constitution of Koekhon" },
             { "JHhk", "Jh", "Jp", "Julian Protectorate, Hhkar Sphere" },
@@ -305,18 +317,18 @@ namespace Maps
             { "JMen", "Jm", "Jp", "Julian Protectorate, Commonwealth of Mendan" },
             { "JPSt", "Jp", "Jp", "Julian Protectorate, Pirbarish Starlane" },
             { "JRar", "Vw", "Jp", "Julian Protectorate, Rar Errall/Wolves Warren" },
-            { "JUkh", "Ju", "Jp", "Julian Protectorate, Ukhanzi Coordinate" },
-            { "JVug", "Jv", "Jp", "Julian Protectorate, Vugurar Dominion" },
-            { "JaPa", "Ja", null, "Jarnac Pashalic" },
             { "JuHl", "Hl", "Jp", "Julian Protectorate, Hegemony of Lorean" },
+            { "JUkh", "Ju", "Jp", "Julian Protectorate, Ukhanzi Coordinate" },
+            { "JuNa", "Jn", null, "Jurisdiction of Nadon" },
             { "JuPr", "Jp", "Jp", "Julian Protectorate" }, // independent
             { "JuRu", "Jr", "Jp", "Julian Protectorate, Rukadukaz Republic" },
-            { "KPel", "Pe", "Pe", "Kingdom of Peladon" },
+            { "JVug", "Jv", "Jp", "Julian Protectorate, Vugurar Dominion" },
             { "KaCo", "KC", null, "Katowice Conquest" },
             { "KaWo", "KW", null, "Karhyri Worlds" },
             { "KhLe", "Kl", null, "Khuur League" },
             { "KoEm", "Ko", "Ko", "Korsumug Empire" },
             { "KoPm", "Pm", "Pm", "Percavid Marches" },
+            { "KPel", "Pe", "Pe", "Kingdom of Peladon" },
             { "KrBu", "Kr", null, "Kranzbund" },
             { "LaCo", "Lc", null, "Langemarck Coalition" },
             { "LeSu", "Ls", "L", "League of Suns" },
@@ -325,6 +337,7 @@ namespace Maps
             { "MaCl", "Ma", null, "Mapepire Cluster" },
             { "MaEm", "Mk", null, "Maskai Empire" },
             { "MaPr", "MF", null, "Ma'Gnar Primarchic" },
+            { "MaUn", "Mu", null, "Malorn Union" },
             { "MeCo", "Me", null, "Megusard Corporate" },
             { "MiCo", "Mi", null, "Mische Conglomerate" },
             { "MnPr", "Mn", "N", "Mnemosyne Principality" },
@@ -339,14 +352,20 @@ namespace Maps
             { "PlLe", "Pl", null, "Plavian League" },
             { "Prot", "Pt", "P", "The Protectorate" },
             { "RaRa", "Ra", null, "Ral Ranta" },
-            { "ReUn", "Re", null, "Renkard Union" },
             { "Reac", "Rh", null, "The Reach" },
+            { "ReUn", "Re", null, "Renkard Union" },
             { "SaCo", "Sc", "S", "Salinaikin Concordance" },
             { "Sark", "Sc", "Sc", "Sarkan Constellation" },
             { "SeFo", "Sf", null, "Senlis Foederate" },
             { "SlLg", "Sl", null, "Shukikikar League" },
+            { "SoBF", "So", "So", "Solomani Confederation, Bootean Federation" },
             { "SoCf", "So", "So", "Solomani Confederation" },
+            { "SoCT", "So", "So", "Solomani Confederation, Consolidation of Turin" },
+            { "SoFr", "Fr", "So", "Solomani Confederation, Third Reformed French Confederate Rebublic" },
+            { "SoHn", "Hn", "So", "Solomani Confederation, Hanuman Systems" },
+            { "SoKv", "Kv", "So", "Solomani Confederation, Kostov Confederate Republic" },
             { "SoNS", "So", "So", "Solomani Confederation, New Slavic Solidarity" },
+            { "SoQu", "Qu", "So", "Solomani Confederation, Grand United States of Quesada" },
             { "SoRD", "So", "So", "Solomani Confederation, Reformed Dootchen Estates" },
             { "SoWu", "So", "So", "Solomani Confederation, Wuan Technology Association" },
             { "StCl", "Sc", null, "Strend Cluster" },
@@ -354,6 +373,7 @@ namespace Maps
             { "SwFW", "Sw", null, "Swanfei Free Worlds" },
             { "SyRe", "Sy", null, "Syzlin Republic" },
             { "TeCl", "Tc", null, "Tellerian Cluster" },
+            { "TrBr", "Tb", null, "Trita Brotherhood" },
             { "TrCo", "Tr", null, "Trindel Confederacy" },
             { "TrDo", "Td", null, "Trelyn Domain" },
             { "TroC", "Tr", "Tr", "Trooles Confederation" },
@@ -361,14 +381,16 @@ namespace Maps
             { "UnHa", "Uh", null, "Union of Harmony" },
             { "V17D", "V7", null, "17th Disjucture" },
             { "V40S", "Ve", null, "40th Squadron" }, // (Ekhelle Ksafi)
-            { "VARC", "Vr", null, "Anti-Rukh Coalition" }, // (Gnoerrgh Rukh Lloell)
             { "VAnP", "Vx", null, "Antares Pact" },
+            { "VARC", "Vr", null, "Anti-Rukh Coalition" }, // (Gnoerrgh Rukh Lloell)
             { "VAug", "Vu", null, "United Followers of Augurgh" },
             { "VBkA", "Vb", null, "Bakne Alliance" },
             { "VCKd", "Vk", null, "Commonality of Kedzudh" }, // (Kedzudh Aeng)
+            { "VDrN", "VN", null, "Drr'lana Network" },
             { "VDzF", "Vf", null, "Dzarrgh Federate" },
             { "VFFD", "V1", null, "First Fleet of Dzo" },
             { "VGoT", "Vg", null, "Glory of Taarskoerzn" },
+            { "ViCo", "Vi", null, "Viyard Concourse" },
             { "VIrM", "Vh", null, "Irrgh Manifest" },
             { "VJoF", "Vj", null, "Jihad of Faarzgaen" },
             { "VLIn", "Vi", null, "Llaeghskath Interacterate" },
@@ -382,20 +404,23 @@ namespace Maps
             { "VSDp", "Vs", null, "Saeknouth Dependency" }, // (Saeknouth Igz)
             { "VSEq", "Vd", null, "Society of Equals" }, // (Dzen Aeng Kho)
             { "VThE", "Vt", null, "Thoengling Empire" }, // (Thoengling Raghz)
+            { "VTrA", "VT", null, "Trae Aggregation" },
             { "VTzE", "Vp", null, "Thirz Empire" }, // (Thirz Uerra)
             { "VUru", "Vu", null, "Urukhu" },
             { "VVar", "Ve", null, "Empire of Varroerth" },
             { "VVoS", "Vv", null, "Voekhaeb Society" },
-            { "VWP2", "V2", null, "Windhorn Pact of Two" },
             { "VWan", "Vw", null, "People of Wanz" },
-            { "ViCo", "Vi", null, "Viyard Concourse" },
+            { "VWP2", "V2", null, "Windhorn Pact of Two" },
+            { "VYoe", "VQ", null, "Union of Yoetyqq" },
+            { "WiDe", "Wd", null, "Winston Democracy" },
             { "XXXX", "Xx", null, "Unknown" },
             { "ZePr", "Zp", "Z", "Zelphic Primacy" },
+            { "ZhAx", "Ax", "Zh", "Zhodani Consulate, Addaxur Reserve" },
             { "ZhCa", "Ca", "Zh", "Zhodani Consulate, Colonnade Province" },
             { "ZhCh", "Zh", "Zh", "Zhodani Consulate, Chtierabl Province" },
             { "ZhCo", "Zh", "Zh", "Zhodani Consulate" }, // undetermined
-            { "ZhIN", "Zh", "Zh", "Zhodani Consulate, Iadr Nsobl Province" },
             { "ZhIa", "Zh", "Zh", "Zhodani Consulate, Iabrensh Province" },
+            { "ZhIN", "Zh", "Zh", "Zhodani Consulate, Iadr Nsobl Province" },
             { "ZhJp", "Zh", "Zh", "Zhodani Consulate, Jadlapriants Province" },
             { "ZhMe", "Zh", "Zh", "Zhodani Consulate, Meqlemianz Province" },
             { "ZhOb", "Zh", "Zh", "Zhodani Consulate, Obrefripl Province" },
@@ -404,6 +429,20 @@ namespace Maps
             { "Zuug", "Zu", "Zu", "Zuugabish Tripartite" },
             { "ZyCo", "Zc", null, "Zydarian Codominion" },
             // Allegiance Table End
+            #endregion
+
+            // -----------------------
+            // Unofficial/Unreviewed
+            // -----------------------
+
+            // M1120
+            { "FdAr", "Fa", null, "Federation of Arden" },
+            { "BoWo", "Bw", null, "Border Worlds" },
+            { "LuIm", "Li", null, "Lucan's Imperium" },
+            { "MaSt", "Ma", null, "Maragaret's Domain" },
+            { "BaCl", "Bc", null, "Backman Cluster" },
+            { "FdDa", "Fd", null, "Federation of Daibei" },
+            { "AvCn", "Ac", null, "Avalar Consulate" },
         };
         public static IEnumerable<string> AllegianceCodes { get { return s_t5Allegiances.Keys; } }
 
@@ -427,6 +466,7 @@ namespace Maps
             "ImSy", // Third Imperium, Sylean Worlds (Core)
             "ImVd", // Third Imperium, Vegan Autonomous District (Solo)
             "XXXX", // Unknown
+            "??", // Placeholder - show as blank
             "--", // Placeholder - show as blank
         };
 
@@ -443,13 +483,15 @@ namespace Maps
         #endregion Allegiance
 
         #region Sophonts
-        private static readonly IReadOnlyDictionary<string, string> s_sophontCodes = new Dictionary<string,string> {
+        private static readonly IReadOnlyDictionary<string, string> s_sophontCodes = new Dictionary<string, string> {
+            #region T5SS Sophont Codes
             // Sophont Table Begin
             { "Adda", "Addaxur" },
             { "Akee", "Akeed" },
             { "Aqua", "Aquans (Daga)/Aquamorphs (Alph)" },
             { "Asla", "Aslan" },
             { "Bhun", "Brunj" },
+            { "Brin", "Brinn" },
             { "Bruh", "Bruhre" },
             { "Buru", "Burugdi" },
             { "Bwap", "Bwaps" },
@@ -464,13 +506,16 @@ namespace Maps
             { "Gnii", "Gniivi" },
             { "Gray", "Graytch" },
             { "Guru", "Gurungan" },
+            { "Gurv", "Gurvin" },
             { "Hama", "Hamaran" },
             { "Hive", "Hiver" },
             { "Huma", "Human" }, // (Vilani/Solomani-mixed)
+            { "Ithk", "Ithklur" },
             { "Jaib", "Jaibok" },
             { "Jala", "Jala'lak" },
             { "Jend", "Jenda" },
             { "Jonk", "Jonkeereen" },
+            { "K'kr", "K'kree" },
             { "Kafo", "Kafoe" },
             { "Kagg", "Kaggushus" },
             { "Karh", "Karhyri" },
@@ -496,6 +541,7 @@ namespace Maps
             { "Sydi", "Sydites" },
             { "Syle", "Syleans" },
             { "Tapa", "Tapazmal" },
+            { "Taur", "Taureans" },
             { "Tent", "Tentrassi" },
             { "Tlye", "Tlyetrai" },
             { "UApe", "Uplifted Apes" },
@@ -504,9 +550,11 @@ namespace Maps
             { "Urun", "Urunishani" },
             { "Varg", "Vargr" },
             { "Vega", "Vegans" },
+            { "Za't", "Za'tachk" },
             { "Zhod", "Zhodani" },
             { "Ziad", "Ziadd" },
             // Sophont Table End
+            #endregion
         };
         public static string SophontCodeToName(string code)
         {

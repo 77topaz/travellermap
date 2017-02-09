@@ -12,7 +12,7 @@ namespace Maps
         public LRUCache(int size)
         {
             if (size <= 0)
-                throw new ArgumentOutOfRangeException("size", "size must be > 0");
+                throw new ArgumentOutOfRangeException(nameof(size), size, "must be > 0");
             this.size = size;
         }
 
@@ -76,18 +76,12 @@ namespace Maps
 
     internal class ResourceManager
     {
-        private HttpServerUtility serverUtility;
-        public HttpServerUtility Server { get { return serverUtility; } }
-
-        private LRUCache cache = new LRUCache(50);
-
-        // TODO: Quick Fix - clean this up later
-        //private Cache m_cache;
-        public LRUCache Cache { get { return cache; } }
+        public HttpServerUtility Server { get; private set; }
+        public LRUCache Cache { get; } = new LRUCache(50);
 
         public ResourceManager(HttpServerUtility serverUtility)
         {
-            this.serverUtility = serverUtility;
+            Server = serverUtility;
         }
 
         public object GetXmlFileObject(string name, Type type, bool cache = true)
@@ -96,11 +90,18 @@ namespace Maps
             {
                 using (var stream = new FileStream(Server.MapPath(name), FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    XmlSerializer xs = new XmlSerializer(type);
-                    object o = xs.Deserialize(stream);
-                    if (o.GetType() != type)
-                        throw new InvalidOperationException();
-                    return o;
+                    try
+                    {
+                        XmlSerializer xs = new XmlSerializer(type);
+                        object o = xs.Deserialize(stream);
+                        if (o.GetType() != type)
+                            throw new InvalidOperationException();
+                        return o;
+                    }
+                    catch (InvalidOperationException ex) when (ex.InnerException is System.Xml.XmlException)
+                    {
+                        throw ex.InnerException;
+                    }
                 }
             }
 

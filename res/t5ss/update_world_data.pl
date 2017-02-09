@@ -3,12 +3,16 @@ use strict;
 use FileHandle;
 use File::Basename;
 
+my $dir = dirname($0);
+
 my %sectors = (
     Akti => "Aktifao",
+    Alde => 'Aldebaran',
     Alph => "Alpha Crucis",
     Amdu => 'Amdukan',
     Anta => "Antares",
     Beyo => "Beyond",
+    Cano => 'Canopus',
     Core => "Core",
     Corr => "Corridor",
     Cruc => "Crucis Margin",
@@ -23,6 +27,7 @@ my %sectors = (
     Farf => "Far Frontiers",
     Fore => "Foreven",
     Forn => "Fornast",
+    Gash => "Gashikan",
     Gate => "Gateway",
     Glim => "Glimmerdrift",
     Gush => "Gushemege",
@@ -31,12 +36,14 @@ my %sectors = (
     Hlak => "Hlakhoi",
     Ilel => "Ilelish",
     Iwah => "Iwahfuah",
+    Lang => 'Langere',
     Ley  => "Ley",
     Lish => "Lishun",
     Magy => "Magyar",
     Mass => "Massilia",
     Mend => 'Mendan',
     Mesh => 'Meshan',
+    Newo => 'Neworld',
     Olde => "Old Expanses",
     Prov => 'Provence',
     Reav => "Reavers Deep",
@@ -47,6 +54,8 @@ my %sectors = (
     Spin => "Spinward Marches",
     Stai => "Staihaia'yo",
     Thet => "Theta Borealis",
+    Tien => "Tienspevnekr",
+    Tren => "Trenchans",
     Troj => "Trojan Reach",
     Tugl => 'Tuglikki',
     Uist => "Uistilrao",
@@ -59,26 +68,47 @@ my %sectors = (
     Ziaf => "Ziafrplians",
     );
 
+# If saving as tab-delimited text from MacOS Excel:
+#   Line endings: CR
+#   Input encoding: MacRoman
+# If copy/pbpaste from MacOS Excel:
+#   Line endings: CR
+#   Input encoding: UTF-8
+
+my $INPUT_LINE_ENDINGS = "\r";
+my $INPUT_ENCODING = "UTF-8";
+
 my %files;
+my @lines = ();
+my $header;
+{
+    my @in_files = ('t5ss-im.tsv', 't5ss-nonim.tsv');
+    local $/ = $INPUT_LINE_ENDINGS;
+    foreach my $file (@in_files) {
+        my $count = 0;
+        print "processing: $file\n";
+        my $in_path = $dir . '/' . $file;
+        open my $in, "<:encoding($INPUT_ENCODING)", $in_path or die;
+        my $keep = 0;
+        foreach my $line (<$in>) {
+            chomp $line;
+            my $sector = (split('\t', $line))[1];
+            if (!$keep && $sector eq 'Sector') {
+                $header = $line;
+                $keep = 1;
+                next;
+            }
+            next unless $keep && $sector =~ /^....?$/;
+            push @lines, $line;
+            ++$count;
+        }
+        print " count: $count lines\n";
+    }
+}
 
-my $dir = dirname($0);
+@lines = sort @lines;
 
-my $in_path = $dir . '/world_data.tsv';
-open my $in, '<', $in_path or die;
-my $line;
-
-$line = <$in>; chomp $line; $line =~ s/\s+$//;
-die "Unexpected header: $line\n" unless $line =~ /^WORLD DATA$/;
-
-$line = <$in>; chomp $line; $line =~ s/\s+$//;
-die "Unexpected header: $line\n" unless $line =~ /^$/;
-$line = <$in>; chomp $line; $line =~ s/\s+$//;
-die "Unexpected header: $line\n" unless $line =~ /^$/;
-
-$line = <$in>; chomp $line;
-die "Unexpected header: $line\n" unless $line =~ /^Sector\tHex\tName\tUWP\t/;
-
-my @header = map { trim($_) } split('\t', $line);
+my @header = map { trim($_) } split('\t', $header);
 
 my @outheader = (
     'Sector',
@@ -129,17 +159,26 @@ sub hexToSS {
     return chr(ord('A') + $ssx + $ssy * 4);
 }
 
-foreach $line (<$in>) {
+my $outdir = $dir . '/../Sectors/M1105';
+
+foreach my $line (@lines) {
     chomp $line;
     my @cols = map { trim($_) } split("\t", $line);
     my %fields = ();
     for my $i (0..$#header) {
-        $fields{$header[$i]} = $cols[$i];
+        my $value = $cols[$i];
+        $value = $1 if $value =~ /^"(.*)"$/;
+        $fields{$header[$i]} = $value;
     }
     my $sec = $fields{'Sector'};
+    next if $sec eq 'ZZZZ'; # Sentinel
+
     if (!exists $files{$sec}) {
         die "Unknown sector code: $sec\n" unless exists $sectors{$sec};
-        $files{$sec} = FileHandle->new("> $dir/../Sectors/$sectors{$sec}.tab");
+        print "Processing $sec...\n";
+        my $fh = FileHandle->new;
+        $files{$sec} = $fh;
+        open ($fh, '>:encoding(UTF-8)', "$outdir/$sectors{$sec}.tab");
         print { $files{$sec} } join("\t", @outheader), "\n";
     }
 
@@ -154,5 +193,3 @@ foreach $line (<$in>) {
     }
     print { $files{$sec} } join("\t", @out), "\n";
 }
-
-close $in;

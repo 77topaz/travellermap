@@ -21,6 +21,7 @@ namespace Maps
 
         public bool Slop { get; set; }
         public float SlopFactor { get; set; }
+        public bool UseMilieuFallbacks { get; set; }
 
         public abstract IEnumerable<Sector> Sectors { get; }
         public abstract IEnumerable<World> Worlds { get; }
@@ -48,10 +49,10 @@ namespace Maps
         public SectorSelector(ResourceManager resourceManager, Sector sector)
         {
             if (resourceManager == null)
-                throw new ArgumentNullException("resourceManager");
+                throw new ArgumentNullException(nameof(resourceManager));
 
             if (sector == null)
-                throw new ArgumentNullException("sector");
+                throw new ArgumentNullException(nameof(sector));
 
             this.sector = sector;
             this.resourceManager = resourceManager;
@@ -73,13 +74,13 @@ namespace Maps
         public SubsectorSelector(ResourceManager resourceManager, Sector sector, int index)
         {
             if (resourceManager == null)
-                throw new ArgumentNullException("resourceManager");
+                throw new ArgumentNullException(nameof(resourceManager));
 
             if (sector == null)
-                throw new ArgumentNullException("sector");
+                throw new ArgumentNullException(nameof(sector));
 
             if (index < 0 || index >= 16)
-                throw new ArgumentOutOfRangeException("index", "index must be 0...15");
+                throw new ArgumentOutOfRangeException(nameof(index), index, "must be 0...15");
 
             this.sector = sector;
             this.index = index;
@@ -120,13 +121,13 @@ namespace Maps
         public QuadrantSelector(ResourceManager resourceManager, Sector sector, int index)
         {
             if (resourceManager == null)
-                throw new ArgumentNullException("resourceManager");
+                throw new ArgumentNullException(nameof(resourceManager));
 
             if (sector == null)
-                throw new ArgumentNullException("sector");
+                throw new ArgumentNullException(nameof(sector));
 
             if (index < 0 || index >= 4)
-                throw new ArgumentOutOfRangeException("index", "index must be 0...3");
+                throw new ArgumentOutOfRangeException(nameof(index), index, "must be 0...3");
 
             this.sector = sector;
             this.index = index;
@@ -167,10 +168,10 @@ namespace Maps
         public RectSelector(SectorMap.Milieu map, ResourceManager resourceManager, RectangleF rect, bool slop = true)
         {
             if (map == null)
-                throw new ArgumentNullException("map");
+                throw new ArgumentNullException(nameof(map));
 
             if (resourceManager == null)
-                throw new ArgumentNullException("resourceManager");
+                throw new ArgumentNullException(nameof(resourceManager));
 
             this.map = map;
             this.resourceManager = resourceManager;
@@ -198,7 +199,7 @@ namespace Maps
                 {
                     for (int cy = sy1; cy <= sy2; cy++)
                     {
-                        Sector sector = map.FromLocation(cx, cy);
+                        Sector sector = map.FromLocation(cx, cy, UseMilieuFallbacks);
                         if (sector == null)
                             continue;
                         yield return sector;
@@ -233,7 +234,7 @@ namespace Maps
 
                         if (cachedLoc != loc.Sector)
                         {
-                            cachedSector = map.FromLocation(loc.Sector.X, loc.Sector.Y);
+                            cachedSector = map.FromLocation(loc.Sector.X, loc.Sector.Y, UseMilieuFallbacks);
                             cachedLoc = loc.Sector;
                         }
 
@@ -265,13 +266,13 @@ namespace Maps
         public HexSelector(SectorMap.Milieu map, ResourceManager resourceManager, Location location, int jump)
         {
             if (map == null)
-                throw new ArgumentNullException("map");
+                throw new ArgumentNullException(nameof(map));
 
             if (resourceManager == null)            
-                throw new ArgumentNullException("resourceManager");
+                throw new ArgumentNullException(nameof(resourceManager));
 
             if (jump < 0 || jump > 36)            
-                throw new ArgumentOutOfRangeException("jump", jump, "jump must be between 0 and 36 inclusive");
+                throw new ArgumentOutOfRangeException(nameof(jump), jump, "must be between 0 and 36 inclusive");
 
             this.map = map;
             this.resourceManager = resourceManager;
@@ -296,7 +297,7 @@ namespace Maps
                 {
                     for (int x = locTL.Sector.X; x <= locBR.Sector.X; ++x)
                     {
-                        Sector sector = map.FromLocation(x, y);
+                        Sector sector = map.FromLocation(x, y, UseMilieuFallbacks);
                         if (sector == null)
                             continue;
                         yield return sector;
@@ -332,7 +333,7 @@ namespace Maps
 
                             if (!cached || cachedLoc != loc.Sector)
                             {
-                                cachedSector = map.FromLocation(loc.Sector.X, loc.Sector.Y);
+                                cachedSector = map.FromLocation(loc.Sector.X, loc.Sector.Y, UseMilieuFallbacks);
                                 cachedLoc = loc.Sector;
                                 cached = true;
                             }
@@ -366,10 +367,10 @@ namespace Maps
         public HexSectorSelector(ResourceManager resourceManager, Sector sector, Hex coords, int jump)
         {
             if (resourceManager == null)
-                throw new ArgumentNullException("resourceManager");
+                throw new ArgumentNullException(nameof(resourceManager));
 
             if (sector == null)
-                throw new ArgumentNullException("sector");
+                throw new ArgumentNullException(nameof(sector));
  
             this.sector = sector;
             this.resourceManager = resourceManager;

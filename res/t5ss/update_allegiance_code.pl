@@ -4,15 +4,6 @@ use File::Basename;
 
 my $dir = dirname($0);
 
-my $code_path = $dir . '/../../server/SecondSurvey.cs';
-my $code;
-{
-    open my $fh, '<', $code_path or die;
-    local $/ = undef;
-    $code = <$fh>;
-    close $fh;
-}
-
 sub trim ($) {
     my ($s) = @_;
     $s =~ s/^\s+//;
@@ -26,10 +17,14 @@ sub quote($) {
     return '"' . $s . '"';
 }
 
-my $alleg_path = $dir . '/allegiance_codes.tsv';
+my $INPUT_LINE_ENDINGS = "\r";
+my $INPUT_ENCODING = "UTF-8";
+
+my $input_path = $dir . '/allegiance_codes.tsv';
 my @lines;
 {
-    open my $fh, '<', $alleg_path or die;
+    local $/ = $INPUT_LINE_ENDINGS;
+    open my $fh, "<:encoding($INPUT_ENCODING)", $input_path or die;
 
     my $line = <$fh>; chomp $line; $line = trim($line);
     die "Unexpected header: $line\n" unless $line =~ /^ALLEGIANCES$/;
@@ -40,6 +35,7 @@ my @lines;
 
     while (<$fh>) {
         chomp;
+        next if /^\s+$/;
         die "Unexpected: $_\n" unless m/^([A-Za-z0-9']{4}) *\t/;
         my ($alleg, $legacy, $base, $desc, $location) = map { trim($_) } split(/\t/);
 
@@ -66,14 +62,23 @@ my @lines;
     close $fh;
 }
 
-@lines = sort @lines;
+@lines = sort { lc $a cmp lc $b } @lines;
 
 my $replace = join("\n", @lines);
+
+my $code_path = $dir . '/../../server/SecondSurvey.cs';
+my $code;
+{
+    open my $fh, '<:encoding(UTF-8)', $code_path or die;
+    local $/ = undef;
+    $code = <$fh>;
+    close $fh;
+}
 
 $code =~ s/(\/\/ Allegiance Table Begin\s*\n)(.*?)(\n\s*\/\/ Allegiance Table End)/$1$replace$3/s;
 
 {
-    open my $fh, '>', $code_path or die;
+    open my $fh, '>:encoding(UTF-8)', $code_path or die;
     print $fh $code;
     close $fh;
 }

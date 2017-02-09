@@ -101,7 +101,7 @@ namespace Maps.Serialization
             }
         }
 
-        private static readonly Regex uwpRegex = new Regex(@"[ABCDEX?][0-9A-Z?]{6}-[0-9A-Z?]", 
+        private static readonly Regex uwpRegex = new Regex(@"[ABCDEX?][0-9A-Z?]{6}-[0-9A-Z?]",
             RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline);
 
         private static readonly Regex worldRegex = new Regex(@"^" +
@@ -127,16 +127,14 @@ namespace Maps.Serialization
         {
             if (!uwpRegex.IsMatch(line))
             {
-                if (errors != null)
-                    errors.Warning("Ignoring non-UWP data", lineNumber, line);
+                errors?.Warning("Ignoring non-UWP data", lineNumber, line);
                 return;
             }
             Match match = worldRegex.Match(line);
 
             if (!match.Success)
             {
-                if (errors != null)
-                    errors.Error("SEC Parse", lineNumber, line);
+                errors?.Error("SEC Parse", lineNumber, line);
                 return;
             }
 
@@ -165,14 +163,14 @@ namespace Maps.Serialization
                 string rest = match.Groups["rest"].Value;
                 if (!string.IsNullOrEmpty(rest))
                     ParseRest(rest, lineNumber, line, world, errors);
-            }
-            catch (Exception e)
-            {
+
                 if (errors != null)
-                    errors.Error("Parse error: " + e.Message, lineNumber, line);
-                else
-                    throw;
-                //throw new Exception(String.Format("UWP Parse Error in line {0}:\n{1}\n{2}", lineNumber, e.Message, line));
+                    world.Validate(errors, lineNumber, line);
+            }
+            catch (Exception e) when (errors != null)
+            {
+                errors.Error("Parse error: " + e.Message, lineNumber, line);
+                //throw new Exception($"UWP Parse Error in line {lineNumber}:\n{e.Message}\n{line}");
             }
         }
 
@@ -185,8 +183,8 @@ namespace Maps.Serialization
             }
             catch (StellarDataParser.InvalidSystemException)
             {
-                if (errors != null)
-                    errors.Warning(string.Format("Invalid stellar data: '{0}'", rest), lineNumber, line);
+                errors?.Warning($"Invalid stellar data: '{rest}'", lineNumber, line);
+                // otherwise ignore
             }
         }
     }
@@ -201,8 +199,9 @@ namespace Maps.Serialization
         private static readonly Regex PBG_REGEX = new Regex("^[0-9X?][0-9A-FX?]{2}$");
 
         // TODO: 'O' for K'kree Outpost is nonstandard, temporarily allowed for round-tripping data.
-        private static readonly Regex BASES_REGEX = new Regex(@"^C?D?E?K?M?N?O?R?S?T?V?W?X?$");
-        private static readonly Regex ZONE_REGEX = new Regex(@"^(|A|R|F|U)$");
+        // TODO: 'H' (for Hiver Supply Base) and 'I' (Interface) are nonstandard, for TNE data.
+        private static readonly Regex BASES_REGEX = new Regex(@"^C?D?E?H?I?K?M?N?O?R?S?T?V?W?X?$");
+        private static readonly Regex ZONE_REGEX = new Regex(@"^(|A|R|F|U|B)$");
         private static readonly Regex NOBILITY_REGEX = new Regex(@"^[BcCDeEfFGH]*$");
 
         private const string STAR = @"(D|BD|BH|[OBAFGKM][0-9]\x20(?:Ia|Ib|II|III|IV|V|VI))";
@@ -238,8 +237,7 @@ namespace Maps.Serialization
                 {
                     if (!options.HasFlag(CheckOptions.Optional))
                     {
-                        if (errors != null)
-                            errors.Error(string.Format("Missing required column {0}", key), lineNumber, line);
+                        errors?.Error($"Missing required column {key}", lineNumber, line);
                         hadError = true;
                     }
                     return null;
@@ -249,14 +247,12 @@ namespace Maps.Serialization
                 {
                     if (!options.HasFlag(CheckOptions.Warning))
                     {
-                        if (errors != null)
-                            errors.Error(string.Format("Unexpected value for {0}: '{1}'", key, dict[key]), lineNumber, line);
+                        errors?.Error($"Unexpected value for {key}: '{dict[key]}'", lineNumber, line);
                         hadError = true;
                     }
                     else
                     {
-                        if (errors != null)
-                            errors.Warning(string.Format("Unexpected value for {0}: '{1}'", key, dict[key]), lineNumber, line);
+                        errors?.Warning($"Unexpected value for {key}: '{dict[key]}'", lineNumber, line);
                     }
                 }
 
@@ -270,7 +266,7 @@ namespace Maps.Serialization
 
             public string Check(ICollection<string> keys, Regex regex = null, CheckOptions options = 0)
             {
-                return Check(keys, value => regex == null || regex.IsMatch(value), options);
+                return Check(keys, value => regex?.IsMatch(value) ?? true, options);
             }
 
             public string Check(ICollection<string> keys, Func<string, bool> validate, CheckOptions options = 0)
@@ -288,14 +284,12 @@ namespace Maps.Serialization
                     {
                         if (!options.HasFlag(CheckOptions.Warning))
                         {
-                            if (errors != null)
-                                errors.Error(string.Format("Unexpected value for {0}: '{1}'", key, value), lineNumber, line);
+                            errors?.Error($"Unexpected value for {key}: '{value}'", lineNumber, line);
                             hadError = true;
                         }
                         else
                         {
-                            if (errors != null)
-                                errors.Warning(string.Format("Unexpected value for {0}: '{1}'", key, value), lineNumber, line);
+                            errors?.Warning($"Unexpected value for {key}: '{value}'", lineNumber, line);
                         }
                     }
 
@@ -304,9 +298,7 @@ namespace Maps.Serialization
 
                 if (!options.HasFlag(CheckOptions.Optional))
                 {
-                    if (errors != null)
-                        errors.Error(string.Format("Missing required column {0}",
-                            string.Join("/", keys)), lineNumber, line);
+                    errors?.Error($"Missing required column {string.Join("/", keys)}", lineNumber, line);
                     hadError = true;
                 }
 
@@ -324,7 +316,7 @@ namespace Maps.Serialization
                 world.Name = checker.Check("Name");
                 world.UWP = checker.Check("UWP", UWP_REGEX);
                 world.Remarks = checker.Check(new string[] { "Remarks", "Trade Codes", "Comments" });
-                world.Importance = checker.Check(new string[] { "{Ix}", "{ Ix }", "Ix" }, options:CheckOptions.Optional);
+                world.Importance = checker.Check(new string[] { "{Ix}", "{ Ix }", "Ix" }, options: CheckOptions.Optional);
                 world.Economic = checker.Check(new string[] { "(Ex)", "( Ex )", "Ex" }, options: CheckOptions.Optional);
                 world.Cultural = checker.Check(new string[] { "[Cx]", "[ Cx ]", "Cx" }, options: CheckOptions.Optional);
                 world.Nobility = checker.Check(new string[] { "N", "Nobility" }, NOBILITY_REGEX, CheckOptions.EmptyIfDash | CheckOptions.Optional);
@@ -332,37 +324,36 @@ namespace Maps.Serialization
                 world.Zone = checker.Check(new string[] { "Z", "Zone" }, ZONE_REGEX, CheckOptions.EmptyIfDash);
                 world.PBG = checker.Check("PBG", PBG_REGEX);
                 world.Allegiance = checker.Check(new string[] { "A", "Al", "Allegiance" },
-                    // TODO: Allow unofficial sectors to have locally declared allegiances.
-                    a => a.Length != 4 || SecondSurvey.IsKnownT5Allegiance(a));
+                    a => worlds.IsUserData || a.Length != 4 || SecondSurvey.IsKnownT5Allegiance(a));
                 world.Stellar = checker.Check(new string[] { "Stellar", "Stars", "Stellar Data" }, STARS_REGEX, CheckOptions.Warning);
 
                 byte w;
-                if (byte.TryParse(checker.Check(new string[] { "W", "Worlds" }, options:CheckOptions.Optional), NumberStyles.Integer, CultureInfo.InvariantCulture, out w))
+                if (byte.TryParse(checker.Check(new string[] { "W", "Worlds" }, options: CheckOptions.Optional), NumberStyles.Integer, CultureInfo.InvariantCulture, out w))
                     world.Worlds = w;
 
                 int ru;
-                if (int.TryParse(checker.Check("RU", options:CheckOptions.Optional), NumberStyles.Integer | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out ru))
+                if (int.TryParse(checker.Check("RU", options: CheckOptions.Optional), NumberStyles.Integer | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out ru))
                     world.ResourceUnits = ru;
 
                 // Cleanup known placeholders
                 if (world.Name == world.Name.ToUpperInvariant() && world.IsHi)
                     world.Name = Util.FixCapitalization(world.Name);
 
-                if (worlds[world.X, world.Y] != null && errors != null)
-                    errors.Warning("Duplicate World", lineNumber, line);
+                if (worlds[world.X, world.Y] != null)
+                    errors?.Warning("Duplicate World", lineNumber, line);
 
                 if (!checker.HadError)
                 {
                     worlds[world.X, world.Y] = world;
                 }
-            }
-            catch (Exception e)
-            {
+
                 if (errors != null)
-                    errors.Error("Parse Error: " + e.Message, lineNumber, line);
-                else
-                    throw;
-                //throw new Exception(String.Format("UWP Parse Error in line {0}:\n{1}\n{2}", lineNumber, e.Message, line));
+                    world.Validate(errors, lineNumber, line);
+            }
+            catch (Exception e) when (errors != null)
+            {
+                errors.Error("Parse Error: " + e.Message, lineNumber, line);
+                //throw new Exception($"UWP Parse Error in line {lineNumber}:\n{e.Message}\n{line}");
             }
         }
     }
@@ -427,7 +418,7 @@ namespace Maps.Serialization
         {
             string[] cols = line.Split(TAB_DELIMITER);
             if (cols.Length != header.Length)
-                throw new ParseException(string.Format("ERROR (Tab Parse) ({0}): {1}", lineNumber, line));
+                throw new ParseException($"ERROR (Tab Parse) ({lineNumber}): {line}");
 
             Dictionary<string, string> dict = new Dictionary<string, string>();
             for (var i = 0; i < cols.Length; ++i)

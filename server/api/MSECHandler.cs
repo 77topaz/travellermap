@@ -21,7 +21,7 @@ namespace Maps.API
                 // NOTE: This (re)initializes a static data structure used for 
                 // resolving names into sector locations, so needs to be run
                 // before any other objects (e.g. Worlds) are loaded.
-                ResourceManager resourceManager = new ResourceManager(context.Server);
+                ResourceManager resourceManager = new ResourceManager(Context.Server);
                 SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
                 Sector sector;
 
@@ -33,7 +33,7 @@ namespace Maps.API
                     sector = map.FromLocation(sx, sy);
 
                     if (sector == null)
-                        throw new HttpError(404, "Not Found", string.Format("The sector at {0},{1} was not found.", sx, sy));
+                        throw new HttpError(404, "Not Found", $"The sector at {sx},{sy} was not found.");
                 }
                 else if (HasOption("sector"))
                 {
@@ -41,7 +41,7 @@ namespace Maps.API
                     sector = map.FromName(sectorName);
 
                     if (sector == null)
-                        throw new HttpError(404, "Not Found", string.Format("The specified sector '{0}' was not found.", sectorName));
+                        throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
                 }
                 else
                 {
@@ -55,7 +55,7 @@ namespace Maps.API
                     data = writer.ToString();
                 }
 
-                SendResult(context, data);
+                SendResult(Context, data);
             }
         }
     }

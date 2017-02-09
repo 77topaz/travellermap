@@ -20,7 +20,7 @@ namespace Maps.API
                 // NOTE: This (re)initializes a static data structure used for 
                 // resolving names into sector locations, so needs to be run
                 // before any other objects (e.g. Worlds) are loaded.
-                ResourceManager resourceManager = new ResourceManager(context.Server);
+                ResourceManager resourceManager = new ResourceManager(Context.Server);
 
                 //
                 // Jump
@@ -31,7 +31,7 @@ namespace Maps.API
                 // Coordinates
                 //
                 SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
-                Location loc = new Location(map.FromName("Spinward Marches").Location, 1910);
+                Location loc = Location.Empty;
 
                 if (HasOption("sector") && HasOption("hex"))
                 {
@@ -39,7 +39,7 @@ namespace Maps.API
                     int hex = GetIntOption("hex", 0);
                     Sector sector = map.FromName(sectorName);
                     if (sector == null)
-                        throw new HttpError(404, "Not Found", string.Format("The specified sector '{0}' was not found.", sectorName));
+                        throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
 
                     loc = new Location(sector.Location, hex);
                 }
@@ -52,7 +52,7 @@ namespace Maps.API
 
                 var data = new Results.JumpWorldsResult();
                 data.Worlds.AddRange(selector.Worlds);
-                SendResult(context, data);
+                SendResult(Context, data);
             }
         }
     }
@@ -64,12 +64,7 @@ namespace Maps.API.Results
     // public for XML serialization
     public class JumpWorldsResult
     {
-        public JumpWorldsResult()
-        {
-            Worlds = new List<World>();
-        }
-
         [XmlElement("World")]
-        public List<World> Worlds { get; }
+        public List<World> Worlds { get; } = new List<World>();
     }
 }

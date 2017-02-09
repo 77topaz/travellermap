@@ -25,15 +25,15 @@ namespace Maps.API
                 // NOTE: This (re)initializes a static data structure used for 
                 // resolving names into sector locations, so needs to be run
                 // before any other objects (e.g. Worlds) are loaded.
-                ResourceManager resourceManager = new ResourceManager(context.Server);
+                ResourceManager resourceManager = new ResourceManager(Context.Server);
                 SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
                 Sector sector;
 
-                if (context.Request.HttpMethod == "POST")
+                if (Context.Request.HttpMethod == "POST")
                 {
-                    var type = SectorMetadataFileParser.SniffType(context.Request.InputStream);
+                    var type = SectorMetadataFileParser.SniffType(Context.Request.InputStream);
                     var parser = SectorMetadataFileParser.ForType(type);
-                    using (var reader = new System.IO.StreamReader(context.Request.InputStream, context.Request.ContentEncoding))
+                    using (var reader = new System.IO.StreamReader(Context.Request.InputStream, Context.Request.ContentEncoding))
                     {
                         sector = parser.Parse(reader);
                     }
@@ -46,7 +46,7 @@ namespace Maps.API
                     sector = map.FromLocation(sx, sy);
 
                     if (sector == null)
-                        throw new HttpError(404, "Not Found", string.Format("The sector at {0},{1} was not found.", sx, sy));
+                        throw new HttpError(404, "Not Found", $"The sector at {sx},{sy} was not found.");
                 }
                 else if (HasOption("sector"))
                 {
@@ -54,14 +54,14 @@ namespace Maps.API
                     sector = map.FromName(sectorName);
 
                     if (sector == null)
-                        throw new HttpError(404, "Not Found", string.Format("The specified sector '{0}' was not found.", sectorName));
+                        throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
                 }
                 else
                 {
                     throw new HttpError(400, "Bad Request", "No sector specified.");
                 }
 
-                SendResult(context, new Results.SectorMetadata(sector, sector.GetWorlds(resourceManager, cacheResults: true)));
+                SendResult(Context, new Results.SectorMetadata(sector, sector.GetWorlds(resourceManager, cacheResults: true)));
             }
         }
     }
@@ -98,6 +98,7 @@ namespace Maps.API.Results
         public List<Name> Names { get { return sector.Names; } }
 
         public string Credits { get { return sector.Credits; } set { } }
+
         public DataFileMetadata DataFile { get { return dataFile; } }
 
         public int X { get { return sector.X; } }
@@ -135,7 +136,7 @@ namespace Maps.API.Results
 
         public MetadataCollection<Border> Borders { get { return sector.Borders; } }
         public bool ShouldSerializeBorders() { return sector.Borders.Count > 0; }
-
+        
         public MetadataCollection<Route> Routes { get { return sector.Routes; } }
         public bool ShouldSerializeRoutes() { return sector.Routes.Count > 0; }
 
@@ -166,7 +167,7 @@ namespace Maps.API.Results
             public string Copyright { get { return sector.DataFile?.Copyright ?? sector.Copyright; } }
 
             [XmlAttribute]
-            public string Era { get { return sector.DataFile?.Era ?? sector.Era; } }
+            public string Milieu { get { return sector.CanonicalMilieu; } }
 
             [XmlAttribute]
             public string Ref { get { return sector.DataFile?.Ref ?? sector.Ref; } }
