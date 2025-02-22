@@ -12,12 +12,11 @@
              Imperium</cite> (GDW, 1984).
 
              It was refined by Martin J. Dougherty and Hunter Gordon
-             and appears in <cite>Gateway to Destiny</cite> (QuickLink
+             and appears in <cite>Gateway to Destiny</cite> (QuikLink
              Interactive, 2006).
 
     ]]>
   </Credits>
-  <DataFile Author="Martin J. Dougherty and Hunter Gordon" Source="Traveller 5 Second Survey" Milieu="M1105" Type="TabDelimited">Glimmerdrift.tab</DataFile>
   <Borders>
     <Border Allegiance="ImDg" Label="Third Imperium" LabelPosition="1102" WrapLabel="true">
       0905 1004 1003 1002 1001 1000 1100 1200 1300 1400 1500 1600 1700 1701 1702 1602 1503 1403 1404 1304 1204 1105 1004 0905
@@ -46,12 +45,16 @@
     <Border Allegiance="MaEm" Color="hotpink" LabelPosition="1523" WrapLabel="true">
       1323 1422 1522 1422 1423 1324 1323
     </Border>
+<!--
+    Removed Oct 2022 at request of MJD. Keeping this in case we want to introduce a "cultural region", etc.
+
     <Border Allegiance="SlLg" Color="darkkhaki" LabelPosition="2505" WrapLabel="true">
       1904 2004 2105 2204 2305 2404 2504 2503 2603 2703 2704 2705 2706 2606 2507 2406 2306 2205 2105 2004 1904
     </Border>
     <Border Allegiance="SlLg" Color="darkkhaki" ShowLabel="false">
       2904
     </Border>
+-->
   </Borders>
   <Subsectors Source="Gateway to Destiny">
     <Subsector Index="A">Darkling</Subsector>

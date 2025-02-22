@@ -1,6 +1,7 @@
-﻿using System;
+﻿#nullable enable
+using Maps.Utilities;
+using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -12,8 +13,8 @@ namespace Maps.Serialization
     {
         public ColumnParser(TextReader reader)
         {
-            string header = null;
-            string separator = null;
+            string? header = null;
+            string? separator = null;
             string line;
             int lineNumber = 0;
 
@@ -66,17 +67,17 @@ namespace Maps.Serialization
             public int lineNumber;
             public string line;
         }
- 
+
         private List<Column> columns = new List<Column>();
         public List<Row> Data { get; } = new List<Row>();
 
-        public IEnumerable<string> Fields { get { return (from col in columns select col.name); } }
-
+        public IEnumerable<string> Fields => (from col in columns select col.name);
         private void ComputeFields(string header, string separator)
         {
             string[] chunks = Regex.Split(separator, @"( +)");
             int c = 0;
-            for (int i = 0; i < chunks.Length; i += 2) {
+            for (int i = 0; i < chunks.Length; i += 2)
+            {
                 int len = chunks[i].Length;
                 columns.Add(new Column { start = c, length = len, name = header.SafeSubstring(c, len).TrimEnd() });
                 c += len;
@@ -88,8 +89,21 @@ namespace Maps.Serialization
         private void ParseLine(string line, int lineNumber)
         {
             Dictionary<string, string> dict = new Dictionary<string, string>();
-            foreach (var column in columns)
+            for (int i = 0; i < columns.Count; ++i)
+            {
+                var column = columns[i];
                 dict[column.name] = line.SafeSubstring(column.start, column.length).TrimEnd();
+
+                // Check gaps for data where only whitespace is expected.
+                if (i > 0)
+                {
+                    var prev = columns[i - 1];
+                    int end = prev.start + prev.length;
+                    string gap = line.SafeSubstring(end, column.start - end);
+                    if (!string.IsNullOrWhiteSpace(gap))
+                        throw new ParseException($"Unexpected data between columns, line {lineNumber}: {line}");
+                }
+            }
             Data.Add(new Row { dict = dict, line = line, lineNumber = lineNumber });
         }
     }
@@ -105,11 +119,8 @@ namespace Maps.Serialization
                 columns[row[i]] = i;
             }
             rows.Add(row);
-
-            Padding = ' ';
-            Delimiter = " ";
-            Separator = '-';
         }
+
         public void AddRow(IList<string> data)
         {
             if (rows[0].Length != data.Count())
@@ -120,6 +131,7 @@ namespace Maps.Serialization
                 row[i] = data[i]?.Trim() ?? "";
             rows.Add(row);
         }
+
         public int[] ComputeWidths()
         {
             int[] widths = new int[rows[0].Length];
@@ -142,12 +154,10 @@ namespace Maps.Serialization
             minimums[columns[col]] = width;
         }
 
-        public void Serialize(Stream stream, Encoding encoding = null)
+        public void Serialize(Stream stream, Encoding? encoding = null)
         {
-            using (var writer = new StreamWriter(stream, encoding))
-            {
-                Serialize(writer);
-            }
+            using var writer = new StreamWriter(stream, encoding);
+            Serialize(writer);
         }
 
         public void Serialize(TextWriter writer, bool includeHeader = true)
@@ -185,9 +195,9 @@ namespace Maps.Serialization
             }
         }
 
-        public char Padding { get; set; }
-        public string Delimiter { get; set; }
-        public char Separator { get; set; }
+        public char Padding { get; set; } = ' ';
+        public string Delimiter { get; set; } = " ";
+        public char Separator { get; set; } = '-';
         private Dictionary<string, int> columns = new Dictionary<string, int>();
         private Dictionary<int, int> minimums = new Dictionary<int, int>();
         private List<string[]> rows = new List<string[]>();

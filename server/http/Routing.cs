@@ -1,25 +1,26 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.Routing;
 
 namespace Maps.HTTP
 {
-    // From http://web.archive.org/web/20080401025712/http://www.iridescence.no/Posts/Defining-Routes-using-Regular-Expressions-in-ASPNET-MVC.aspx
+    // From https://web.archive.org/web/20080401025712/http://www.iridescence.no/Posts/Defining-Routes-using-Regular-Expressions-in-ASPNET-MVC.aspx
     internal class RegexRoute : System.Web.Routing.Route
     {
         private readonly Regex regex;
 
-        public RegexRoute(string pattern, IRouteHandler handler, RouteValueDictionary defaults = null, bool caseInsensitive = false)
+        public RegexRoute(string pattern, IRouteHandler handler, RouteValueDictionary? defaults = null, bool caseInsensitive = false)
             : base(null, defaults, handler)
         {
             RegexOptions options = RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture;
-            if (caseInsensitive) options = options | RegexOptions.IgnoreCase;
+            if (caseInsensitive) options |= RegexOptions.IgnoreCase;
 
             regex = new Regex("^" + pattern + "$", options);
         }
 
-        public override RouteData GetRouteData(HttpContextBase context)
+        public override RouteData? GetRouteData(HttpContextBase context)
         {
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
@@ -52,12 +53,12 @@ namespace Maps.HTTP
             this.type = type;
         }
 
-        IHttpHandler IRouteHandler.GetHttpHandler(RequestContext context)
+        IHttpHandler? IRouteHandler.GetHttpHandler(RequestContext context)
         {
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
 
-            IHttpHandler handler = Activator.CreateInstance(type) as IHttpHandler;
+            IHttpHandler? handler = Activator.CreateInstance(type) as IHttpHandler;
 
             // Pass in RouteData
             // suggested by http://weblog.west-wind.com/posts/2011/Mar/28/Custom-ASPNET-Routing-to-an-HttpHandler
@@ -103,12 +104,7 @@ namespace Maps.HTTP
                 this.statusCode = statusCode;
             }
 
-            bool IHttpHandler.IsReusable
-            {
-                // TODO: Why false here?
-                get { return false; }
-            }
-
+            bool IHttpHandler.IsReusable => false;
             void IHttpHandler.ProcessRequest(HttpContext context)
             {
                 if (context == null)

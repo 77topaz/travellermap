@@ -1,36 +1,28 @@
 #!/usr/bin/env perl
 use strict;
-use File::Basename;
+use warnings;
 
-my $dir = dirname($0);
+use File::Spec;
+use FindBin;
+use lib $FindBin::Bin;
 
-sub trim ($) {
-    my ($s) = @_;
-    $s =~ s/^\s+//;
-    $s =~ s/\s+$//;
-    return $s;
-}
-
-sub quote($) {
-    my ($s) = @_;
-    $s =~ s/["\\]/\\$1/g;
-    return '"' . $s . '"';
-}
+use parseutil;
 
 my $INPUT_LINE_ENDINGS = "\r";
 my $INPUT_ENCODING = "UTF-8";
 
-my $input_path = $dir . '/sophont_codes.tsv';
+my $input_path = File::Spec->catfile($FindBin::Bin, 'sophont_codes.tsv');
 my @lines;
 {
     local $/ = $INPUT_LINE_ENDINGS;
     open my $fh, "<:encoding($INPUT_ENCODING)", $input_path or die;
+    my $line;
 
-    my $line = <$fh>; chomp $line; $line = trim($line);
+    $line = <$fh>; chomp $line; $line = trim($line);
     die "Unexpected header: $line\n" unless $line =~ /^SOPHONTS$/;
-    my $line = <$fh>; chomp $line; $line = trim($line);
+    $line = <$fh>; chomp $line; $line = trim($line);
     die "Unexpected header: $line\n" unless $line =~ /^$/;
-    my $line = <$fh>; chomp $line; $line = trim($line);
+    $line = <$fh>; chomp $line; $line = trim($line);
     die "Unexpected header: $line\n" unless $line =~ /^Code\t/;
 
     while (<$fh>) {
@@ -45,11 +37,11 @@ my @lines;
             $comment = $2;
         }
 
-        $code = quote($code);
-        $sophont = quote($sophont);
+        $code = $code;
+        $sophont = $sophont;
+        $location = $location;
 
-        my $line = "            { $code, $sophont },";
-        $line .= " // $comment" if $comment;
+        my $line = join("\t", ($code, $sophont, $location));
 
         push @lines, $line;
     }
@@ -58,21 +50,8 @@ my @lines;
 
 @lines = sort { lc $a cmp lc $b } @lines;
 
-my $replace = join("\n", @lines);
-
-my $code_path = $dir . '/../../server/SecondSurvey.cs';
-my $code;
-{
-    open my $fh, '<:encoding(UTF-8)', $code_path or die;
-    local $/ = undef;
-    $code = <$fh>;
-    close $fh;
-}
-
-$code =~ s/(\/\/ Sophont Table Begin\s*\n)(.*?)(\n\s*\/\/ Sophont Table End)/$1$replace$3/s;
-
-{
-    open my $fh, '>:encoding(UTF-8)', $code_path or die;
-    print $fh $code;
-    close $fh;
-}
+my $code_path = File::Spec->catfile($FindBin::Bin,  'sophont_codes.tab');
+open my $fh, '>:encoding(UTF-8)', $code_path or die;
+print $fh join("\t", qw(Code Name Location)), "\n";
+print $fh join("\n", @lines), "\n";
+close $fh;

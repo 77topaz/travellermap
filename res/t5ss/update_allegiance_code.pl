@@ -1,36 +1,28 @@
 #!/usr/bin/env perl
 use strict;
-use File::Basename;
+use warnings;
 
-my $dir = dirname($0);
+use File::Spec;
+use FindBin;
+use lib $FindBin::Bin;
 
-sub trim ($) {
-    my ($s) = @_;
-    $s =~ s/^\s+//;
-    $s =~ s/\s+$//;
-    return $s;
-}
+use parseutil;
 
-sub quote($) {
-    my ($s) = @_;
-    $s =~ s/["\\]/\\$1/g;
-    return '"' . $s . '"';
-}
-
-my $INPUT_LINE_ENDINGS = "\r";
+my $INPUT_LINE_ENDINGS = "\n";
 my $INPUT_ENCODING = "UTF-8";
 
-my $input_path = $dir . '/allegiance_codes.tsv';
+my $input_path = File::Spec->catfile($FindBin::Bin, 'allegiance_codes.tsv');
 my @lines;
 {
     local $/ = $INPUT_LINE_ENDINGS;
     open my $fh, "<:encoding($INPUT_ENCODING)", $input_path or die;
+    my $line;
 
-    my $line = <$fh>; chomp $line; $line = trim($line);
+    $line = <$fh>; chomp $line; $line = trim($line);
     die "Unexpected header: $line\n" unless $line =~ /^ALLEGIANCES$/;
-    my $line = <$fh>; chomp $line; $line = trim($line);
+    $line = <$fh>; chomp $line; $line = trim($line);
     die "Unexpected header: $line\n" unless $line =~ /^$/;
-    my $line = <$fh>; chomp $line; $line = trim($line);
+    $line = <$fh>; chomp $line; $line = trim($line);
     die "Unexpected header: $line\n" unless $line =~ /^Code\t/;
 
     while (<$fh>) {
@@ -49,13 +41,13 @@ my @lines;
 
         $legacy =~ s|/.*||g;
 
-        $alleg = quote($alleg);
-        $legacy = quote($legacy);
-        $base = $base ? quote($base) : 'null';
-        $desc = quote($desc);
+        $alleg = $alleg;
+        $legacy = $legacy;
+        $base = $base // '';
+        $desc = $desc;
+        $location = $location // '';
 
-        my $line = "            { $alleg, $legacy, $base, $desc },";
-        $line .= " // $comment" if $comment;
+        my $line = join("\t", ($alleg, $legacy, $base, $desc, $location));
 
         push @lines, $line;
     }
@@ -64,21 +56,8 @@ my @lines;
 
 @lines = sort { lc $a cmp lc $b } @lines;
 
-my $replace = join("\n", @lines);
-
-my $code_path = $dir . '/../../server/SecondSurvey.cs';
-my $code;
-{
-    open my $fh, '<:encoding(UTF-8)', $code_path or die;
-    local $/ = undef;
-    $code = <$fh>;
-    close $fh;
-}
-
-$code =~ s/(\/\/ Allegiance Table Begin\s*\n)(.*?)(\n\s*\/\/ Allegiance Table End)/$1$replace$3/s;
-
-{
-    open my $fh, '>:encoding(UTF-8)', $code_path or die;
-    print $fh $code;
-    close $fh;
-}
+my $code_path = File::Spec->catfile($FindBin::Bin, 'allegiance_codes.tab');
+open my $fh, '>:encoding(UTF-8)', $code_path or die;
+print $fh join("\t", qw(Code Legacy BaseCode Name Location)), "\n";
+print $fh join("\n", @lines), "\n";
+close $fh;

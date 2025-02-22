@@ -1,4 +1,7 @@
-﻿using System;
+﻿#nullable enable
+
+using Maps.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -13,7 +16,7 @@ namespace Maps.Serialization
         public bool includeHeader = true;
         public bool includeRoutes = false;
         public bool sscoords = false;
-        public WorldFilter filter = null;
+        public Func<World, bool>? filter = null;
     }
 
     internal abstract class SectorFileSerializer
@@ -22,30 +25,25 @@ namespace Maps.Serialization
 
         public virtual void Serialize(Stream stream, IEnumerable<World> worlds, SectorSerializeOptions options)
         {
-            using (var writer = new StreamWriter(stream, Encoding))
-            {
-                Serialize(writer, worlds, options);
-            }
+            using var writer = new StreamWriter(stream, Encoding);
+            Serialize(writer, worlds, options);
         }
 
         public abstract void Serialize(TextWriter writer, IEnumerable<World> worlds, SectorSerializeOptions options);
 
-        public static SectorFileSerializer ForType(string mediaType)
-        {
-            switch (mediaType)
+        public static SectorFileSerializer ForType(string? mediaType) =>
+            mediaType switch
             {
-                case "SecondSurvey": return new SecondSurveySerializer();
-                case "TabDelimited": return new TabDelimitedSerializer();
-                case "SEC":
-                default: return new SecSerializer();
-            }
-        }
+                "SecondSurvey" => new SecondSurveySerializer(),
+                "TabDelimited" => new TabDelimitedSerializer(),
+                "SEC" => new SecSerializer(),
+                _ => new SecSerializer(),
+            };
     }
 
     internal class SecSerializer : SectorFileSerializer
     {
-        public override Encoding Encoding { get { return Encoding.GetEncoding(1252); } }
-
+        public override Encoding Encoding => Encoding.GetEncoding(1252);
         public override void Serialize(TextWriter writer, IEnumerable<World> worlds, SectorSerializeOptions options)
         {
 
@@ -91,8 +89,7 @@ namespace Maps.Serialization
 
     internal class SecondSurveySerializer : SectorFileSerializer
     {
-        public override Encoding Encoding { get { return Util.UTF8_NO_BOM; } }
-
+        public override Encoding Encoding => Util.UTF8_NO_BOM;
         public override void Serialize(TextWriter writer, IEnumerable<World> worlds, SectorSerializeOptions options)
         {
             List<string> cols = new List<string> {
@@ -126,10 +123,10 @@ namespace Maps.Serialization
                     world.Name,
                     world.UWP,
                     world.Remarks,
-                    world.Importance,
-                    world.Economic,
-                    world.Cultural,
-                    DashIfEmpty(world.Nobility),
+                    world.Importance ?? "",
+                    world.Economic ?? "",
+                    world.Cultural ?? "",
+                    DashIfEmpty(world.Nobility ?? ""),
                     DashIfEmpty(world.Bases),
                     DashIfEmpty(world.Zone),
                     world.PBG,
@@ -138,8 +135,8 @@ namespace Maps.Serialization
                     world.Stellar
                 };
                 if (options.includeRoutes)
-                    row.Add(world.Routes);
-                formatter.AddRow(row); 
+                    row.Add(world.Routes ?? "");
+                formatter.AddRow(row);
             }
             formatter.Serialize(writer, options.includeHeader);
         }
@@ -154,8 +151,7 @@ namespace Maps.Serialization
 
     internal class TabDelimitedSerializer : SectorFileSerializer
     {
-        public override Encoding Encoding { get { return Util.UTF8_NO_BOM; } }
-
+        public override Encoding Encoding => Util.UTF8_NO_BOM;
         public override void Serialize(TextWriter writer, IEnumerable<World> worlds, SectorSerializeOptions options)
         {
             if (options.includeHeader)
@@ -167,7 +163,7 @@ namespace Maps.Serialization
             foreach (World world in worlds.OrderBy(world => world.Subsector))
             {
                 writer.WriteLine(string.Join("\t", new string[] {
-                    world.Sector.Abbreviation,
+                    world.Sector?.Abbreviation ?? "",
                     world.SS,
                     options.sscoords ? world.SubsectorHex : world.Hex,
                     world.Name,
@@ -178,12 +174,12 @@ namespace Maps.Serialization
                     world.PBG,
                     world.Allegiance,
                     world.Stellar,
-                    world.Importance,
-                    world.Economic,
-                    world.Cultural,
-                    world.Nobility,
+                    world.Importance ?? "",
+                    world.Economic ?? "",
+                    world.Cultural ?? "",
+                    world.Nobility ?? "",
                     world.Worlds > 0 ? world.Worlds.ToString(CultureInfo.InvariantCulture) : "",
-                    world.ResourceUnits.ToString(CultureInfo.InvariantCulture)
+                    world.ResourceUnits?.ToString(CultureInfo.InvariantCulture) ?? ""
                 }));
             }
         }

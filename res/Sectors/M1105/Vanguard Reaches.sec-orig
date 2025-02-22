@@ -5,9 +5,6 @@
 
 # Transcribed by Joshua Bell (inexorabletash@gmail.com)
 
-# The Traveller game in all forms is owned by Far Future Enterprises.
-# Copyright (C) 1977 - 2014 Far Future Enterprises.
-
 # World Alignment Codes
 #  @ Altarean Confederation
 #  © Colonnade Administrative District
@@ -162,7 +159,7 @@ Quillon◄             0104 X205653 8 Red Zone, No Gas Giant                    
 Nadsat◄              0106 E726441 7 Amber Zone                                NI
 Anselmeara◄          0107 D424699 4 Scout Base                                NI
 Varen's Planet◄      0201 A000B99 B Naval Base, Yard, No Gas Giant         NA, I
-Emerling‘s Refuge◄   0203 X441896 6 Red Zone                                   P
+Emerling's Refuge◄   0203 X441896 6 Red Zone                                   P
 Entroper's World◄    0204 C584755 6
 Voxarl◄              0206 X453343 7 Red Zone                               NI, P
 Obykla               0207 X270520 9 Red Zone                                  NI
@@ -620,7 +617,7 @@ Vidtron              0307 B564ABA F Amber Zone, No Gas Giant
 Wellett              0308 X554720 4                                             A
 Daquarn              0309 B21059B G Amber Zone                                 NI
 Mickelwhite          0402 E679366 6 No Gas Giant                               NI
-Clemson’s Colony     0404 C432220 C Amber Zone                              NI, P
+Clemson's Colony     0404 C432220 C Amber Zone                              NI, P
 Struldbrug           0405 C100232 B No Gas Giant                               NI
 Syreeta              0407 B543522 A                                         NI, P
 Daquam 2             0408 E326674 5 No Gas Giant                               NI

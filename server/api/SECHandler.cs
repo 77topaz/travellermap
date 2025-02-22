@@ -1,44 +1,66 @@
-﻿using System.IO;
+﻿#nullable enable
+using Maps.Serialization;
+using Maps.Utilities;
+using System.IO;
 using System.Net.Mime;
 using System.Text;
 using System.Web;
-using Maps.Serialization;
 
 namespace Maps.API
 {
     internal class SECHandler : DataHandlerBase
     {
-        protected override string ServiceName { get { return "sec"; } }
-        protected override DataResponder GetResponder(HttpContext context)
-        {
-            return new Responder(context);
-        }
+        protected override DataResponder GetResponder(HttpContext context) => new Responder(context);
+
         private class Responder : DataResponder
         {
             public Responder(HttpContext context) : base(context) { }
-            public override string DefaultContentType { get { return System.Net.Mime.MediaTypeNames.Text.Plain; } }
-
-            public override void Process()
+            public override string DefaultContentType => ContentTypes.Text.Plain;
+            public override void Process(ResourceManager resourceManager)
             {
                 // NOTE: This (re)initializes a static data structure used for 
                 // resolving names into sector locations, so needs to be run
                 // before any other objects (e.g. Worlds) are loaded.
-                ResourceManager resourceManager = new ResourceManager(Context.Server);
-                SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
+                SectorMap.Milieu map = SectorMap.ForMilieu(GetStringOption("milieu"));
                 Sector sector;
 
-                SectorSerializeOptions options = new Serialization.SectorSerializeOptions();
-                options.sscoords = GetBoolOption("sscoords", defaultValue: false);
-                options.includeMetadata = GetBoolOption("metadata", defaultValue: true);
-                options.includeHeader = GetBoolOption("header", defaultValue: true);
-                options.includeRoutes = GetBoolOption("routes", defaultValue: false);
-
+                SectorSerializeOptions options = new SectorSerializeOptions()
+                {
+                    sscoords = GetBoolOption("sscoords", defaultValue: false),
+                    includeMetadata = GetBoolOption("metadata", defaultValue: true),
+                    includeHeader = GetBoolOption("header", defaultValue: true),
+                    includeRoutes = GetBoolOption("routes", defaultValue: false)
+                };
                 if (Context.Request.HttpMethod == "POST")
                 {
                     bool lint = GetBoolOption("lint", defaultValue: false);
-                    var errors = lint ? new ErrorLogger() : null;
-                    sector = new Sector(Context.Request.InputStream, new ContentType(Context.Request.ContentType).MediaType, errors);
-                    if (lint && !errors.Empty)
+                    ErrorLogger? errors = null;
+                    if (lint)
+                    {
+                        bool hide_uwp = GetBoolOption("hide-uwp", defaultValue: false);
+                        bool hide_tl = GetBoolOption("hide-tl", defaultValue: false);
+                        bool hide_cap = GetBoolOption("hide-cap", defaultValue: false);
+                        bool filter(ErrorLogger.Record record)
+                        {
+                            if (hide_uwp && record.message.StartsWith("UWP")) return false;
+                            if (hide_tl && record.message.StartsWith("UWP: TL")) return false;
+                            if (hide_cap && record.message.StartsWith("Gov 6 (captive/colony)")) return false;
+                            return true;
+                        }
+                        errors = new ErrorLogger(filter);
+                    }
+
+                    try
+                    {
+                        sector = new Sector(Context.Request.InputStream, new ContentType(Context.Request.ContentType).MediaType, errors);
+                    }
+                    catch (ParseException ex)
+                    {
+                        if (!lint)
+                            throw;
+                        throw new HttpError(400, "Bad Request", $"Bad data file: {ex.Message}");
+                    }
+                    if (lint && errors != null && !errors.Empty)
                         throw new HttpError(400, "Bad Request", errors.ToString());
                     options.includeMetadata = false;
                 }
@@ -47,17 +69,13 @@ namespace Maps.API
                     int sx = GetIntOption("sx", 0);
                     int sy = GetIntOption("sy", 0);
 
-                    sector = map.FromLocation(sx, sy);
-
-                    if (sector == null)
+                    sector = map.FromLocation(sx, sy) ??
                         throw new HttpError(404, "Not Found", $"The sector at {sx},{sy} was not found.");
                 }
                 else if (HasOption("sector"))
                 {
-                    string sectorName = GetStringOption("sector");
-                    sector = map.FromName(sectorName);  
-
-                    if (sector == null)
+                    string sectorName = GetStringOption("sector")!;
+                    sector = map.FromName(sectorName) ??
                         throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
                 }
                 else
@@ -67,7 +85,7 @@ namespace Maps.API
 
                 if (HasOption("subsector"))
                 {
-                    string subsector = GetStringOption("subsector");
+                    string subsector = GetStringOption("subsector")!;
                     int index = sector.SubsectorIndexFor(subsector);
                     if (index == -1)
                         throw new HttpError(404, "Not Found", $"The specified subsector '{subsector}' was not found.");
@@ -75,25 +93,20 @@ namespace Maps.API
                 }
                 else if (HasOption("quadrant"))
                 {
-                    string quadrant = GetStringOption("quadrant");
+                    string quadrant = GetStringOption("quadrant")!;
                     int index = Sector.QuadrantIndexFor(quadrant);
                     if (index == -1)
                         throw new HttpError(400, "Bad Request", $"The specified quadrant '{quadrant}' is invalid.");
                     options.filter = (World world) => (world.Quadrant == index);
                 }
 
-                string mediaType = GetStringOption("type");
-                Encoding encoding;
-                switch (mediaType)
+                string? mediaType = GetStringOption("type");
+                Encoding encoding = mediaType switch
                 {
-                    case "SecondSurvey":
-                    case "TabDelimited":
-                        encoding = Util.UTF8_NO_BOM;
-                        break;
-                    default:
-                        encoding = Encoding.GetEncoding(1252);
-                        break;
-                }
+                    "SecondSurvey" => Util.UTF8_NO_BOM,
+                    "TabDelimited" => Util.UTF8_NO_BOM,
+                    _ => Encoding.GetEncoding(1252),
+                };
 
                 string data;
                 using (var writer = new StringWriter())
@@ -103,7 +116,7 @@ namespace Maps.API
                     sector.Serialize(resourceManager, writer, mediaType, options);
                     data = writer.ToString();
                 }
-                SendResult(Context, data, encoding);
+                SendResult(data, encoding);
             }
         }
     }

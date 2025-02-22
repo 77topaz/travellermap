@@ -1,6 +1,5 @@
 /*global Traveller,Util,Handlebars */ // for lint and IDEs
-
-window.addEventListener('DOMContentLoaded', function() {
+(global => {
   'use strict';
 
   //////////////////////////////////////////////////////////////////////
@@ -9,9 +8,8 @@ window.addEventListener('DOMContentLoaded', function() {
   //
   //////////////////////////////////////////////////////////////////////
 
-  // IE8: document.querySelector can't use bind()
-  var $ = function(s) { return document.querySelector(s); };
-  var $$ = function(s) { return document.querySelectorAll(s); };
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -19,14 +17,56 @@ window.addEventListener('DOMContentLoaded', function() {
   //
   //////////////////////////////////////////////////////////////////////
 
-  var mapElement = $('#dragContainer'), sizeElement = mapElement.parentNode;
-  var map = new Traveller.Map(mapElement, sizeElement);
+  // Account for adjustments to innerHeight (dynamic browser UI)
+  // (Repro: Safari on iPhone, enter landscape, make url bar appear)
+  function resizeWindow() {
+    if (window.innerHeight !== window.outerHeight && !navigator.standalone) {
+      document.body.style.height = window.innerHeight + 'px';
+      document.documentElement.style.height = window.innerHeight + 'px';
+      window.scrollTo(0, 0);
+    } else if (document.body.style.height !== '') {
+      document.body.style.height = '';
+      document.documentElement.style.height = '';
+      window.scrollTo(0, 0);
+    }
+  }
+  window.addEventListener('resize', event => {
+    // Timeout to work around iOS Safari giving incorrect sizes while 'resize'
+    // dispatched.
+    setTimeout(resizeWindow, 100);
+  });
+  // Issues on load on iOS (non-standalone); just leave this running.
+  if (navigator.userAgent.match(/iPad|iPhone|iPod/)) {
+    if (navigator.standalone) {
+      setTimeout(resizeMap, 500);
+    } else {
+      setInterval(resizeWindow, 500);
+    }
+  }
+
+  const mapElement = $('#dragContainer'), sizeElement = mapElement.parentNode;
+  const map = new Traveller.Map(mapElement, sizeElement);
 
   // Export
   window.map = map;
 
-  var isIframe = (window != window.top); // != for IE
-  var isSmallScreen = mapElement.offsetWidth <= 640; // Arbitrary
+  const isIframe = (window != window.top); // != for IE
+  const isSmallScreen = mapElement.offsetWidth <= 640; // Arbitrary
+
+  function toggleFullscreen() {
+    if (document.fullscreen || document.webkitIsFullScreen) {
+      if ('exitFullscreen' in document)
+        document.exitFullscreen();
+      else if ('webkitExitFullscreen' in document)
+        document.webkitExitFullscreen();
+    } else {
+      const elem = document.documentElement;
+      if ('requestFullscreen' in elem)
+        elem.requestFullscreen();
+      else if ('webkitRequestFullscreen' in elem)
+        elem.webkitRequestFullscreen();
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -35,10 +75,10 @@ window.addEventListener('DOMContentLoaded', function() {
   //////////////////////////////////////////////////////////////////////
 
   // Tweak defaults
-  map.options = map.options | Traveller.MapOptions.NamesMinor | Traveller.MapOptions.ForceHexes;
+  map.options = map.options | Traveller.MapOptions.NamesMinor | Traveller.MapOptions.ForceHexes | Traveller.MapOptions.FilledBorders;
   map.scale = isSmallScreen ? 1 : 2;
   map.CenterAtSectorHex(0, 0, Traveller.Astrometrics.ReferenceHexX, Traveller.Astrometrics.ReferenceHexY);
-  var defaults = {
+  const defaults = {
     x: map.x,
     y: map.y,
     scale: map.scale,
@@ -48,42 +88,38 @@ window.addEventListener('DOMContentLoaded', function() {
     milieu: 'M1105',
     style: map.style
   };
-  var home = {
+  const home = {
     x: defaults.x,
     y: defaults.y,
     scale: defaults.scale
   };
 
-  var SAVE_PREFERENCES_DELAY_MS = 500;
-  var savePreferences = isIframe ? function() {} : Util.debounce(function() {
-    function maybeSave(test, key, data) {
-      if (test)
-        localStorage.setItem(key, JSON.stringify(data));
-      else
-        localStorage.removeItem(key);
-    }
-
-    var prefs = {
+  const SAVE_PREFERENCES_DELAY_MS = 500;
+  const savePreferences = isIframe ? () => {} : Util.debounce(() => {
+    const preferences = {
       style: map.style,
       options: map.options
     };
-    NAMED_OPTIONS.forEach(function(name) {
-      prefs[name] = map.namedOptions.get(name);
+    map.namedOptions.NAMES.forEach(name => {
+      const value = map.namedOptions.get(name);
+      preferences[name] = value === '' ? undefined : value;
     });
-    PARAM_OPTIONS.forEach(function(option) {
-      prefs[option.param] = document.body.classList.contains(option.className);
+    PARAM_OPTIONS.forEach(option => {
+      preferences[option.param] = document.body.classList.contains(option.className);
     });
-    maybeSave($('#cbSavePreferences').checked, 'preferences', prefs);
-    maybeSave($('#cbSaveLocation').checked, 'location', {
+    localStorage.setItem('preferences', JSON.stringify(preferences));
+    localStorage.setItem('location', JSON.stringify({
       position: { x: map.x, y: map.y },
       scale: map.scale
-    });
-    maybeSave($('#cbExperiments').checked, 'experiments', {});
+    }));
   }, SAVE_PREFERENCES_DELAY_MS);
 
-  var template = Util.memoize(function(sel) {
-    return Handlebars.compile($(sel).innerHTML);
-  });
+  const template = Util.memoize(sel => Handlebars.compile($(sel).innerHTML));
+
+  const jump_button_ids = $$('.jump-button').map(e => e.id);
+  const milieu_choices =
+        $$('#milieu-choices input[type=radio][name=milieu]')
+        .map(e => e.value);
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -91,39 +127,46 @@ window.addEventListener('DOMContentLoaded', function() {
   //
   //////////////////////////////////////////////////////////////////////
 
-  var PERMALINK_REFRESH_DELAY_MS = 500;
-  var lastPageURL = null;
-  var updatePermalink = Util.debounce(function() {
+  const PERMALINK_REFRESH_DELAY_MS = 500;
+  let lastPageURL = null;
+  const updatePermalink = Util.debounce(() => {
     function round(n, d) {
       d = 1 / d; // Avoid twitchy IEEE754 rounding.
       return Math.round(n * d) / d;
     }
 
+    delete urlParams.x;
+    delete urlParams.y;
+    delete urlParams.scale;
     delete urlParams.sector;
     delete urlParams.subsector;
     delete urlParams.hex;
 
-    urlParams.x = round(map.x, 1/1000);
-    urlParams.y = round(map.y, 1/1000);
-    urlParams.scale = round(map.scale, 1/128);
+    urlParams.p = [
+      round(map.x, 1/1000),
+      round(map.y, 1/1000),
+      round(map.logScale, 1/100)
+    ].join('!');
     urlParams.options = map.options;
     urlParams.style = map.style;
 
-    var namedOptions = map.namedOptions.keys();
-    map.namedOptions.forEach(function(value, key) { urlParams[key] = value; });
+    const namedOptions = map.namedOptions.keys();
+    map.namedOptions.forEach((value, key) => {
+      urlParams[key] = value;
+    });
 
-    Object.keys(defaults).forEach(function(p) {
+    Object.keys(defaults).forEach(p => {
       if (urlParams[p] === defaults[p]) delete urlParams[p];
     });
 
-    PARAM_OPTIONS.forEach(function(option) {
+    PARAM_OPTIONS.forEach(option => {
       if (document.body.classList.contains(option.className) === option['default'])
         delete urlParams[option.param];
       else
         urlParams[option.param] = 1;
     });
 
-    var pageURL = Util.makeURL(document.location, urlParams);
+    const pageURL = Util.makeURL(document.location, urlParams);
 
     if (pageURL === lastPageURL)
       return;
@@ -132,27 +175,44 @@ window.addEventListener('DOMContentLoaded', function() {
       window.history.replaceState(null, document.title, pageURL);
 
     $('#share-url').value = pageURL;
-    $('#share-embed').value = '<iframe width=400 height=300 src="' + pageURL + '">';
+    $('#share-code').value = `<iframe width=400 height=300 src="${pageURL}">`;
 
-    var snapshotParams = (function() {
-      var map_center_x = map.x,
-          map_center_y = map.y,
-          scale = map.scale,
-          rect = mapElement.getBoundingClientRect(),
-          width = Math.round(rect.width),
-          height = Math.round(rect.height),
-          x = ( map_center_x * scale - ( width / 2 ) ) / width,
-          y = ( -map_center_y * scale - ( height / 2 ) ) / height;
-      return { x: x, y: y, w: width, h: height, scale: scale };
-    }());
+    ['share-url', 'share-code'].forEach(share => {
+      $(`#copy-${share}`).addEventListener('click', event => {
+        event.preventDefault();
+        Util.copyTextToClipboard($(`#${share}`).value);
+      });
+    });
+
+    $$('a.share').forEach(anchor => {
+      const data = {
+        url: encodeURIComponent(pageURL),
+        text: encodeURIComponent('The Traveller Map')
+      };
+      anchor.__func = anchor.__func || Handlebars.compile(anchor.getAttribute('data-template'));
+      anchor.href = anchor.__func(data);
+    });
+
+
+    const snapshotParams = (() => {
+      const map_center_x = map.x,
+            map_center_y = map.y,
+            scale = map.scale,
+            rect = mapElement.getBoundingClientRect(),
+            width = Math.round(rect.width),
+            height = Math.round(rect.height),
+            x = ( map_center_x * scale - ( width / 2 ) ) / width,
+            y = ( -map_center_y * scale - ( height / 2 ) ) / height;
+      return { x, y, w: width, h: height, scale };
+    })();
     snapshotParams.x = round(snapshotParams.x, 1/1000);
     snapshotParams.y = round(snapshotParams.y, 1/1000);
     snapshotParams.scale = round(snapshotParams.scale, 1/128);
     snapshotParams.options = map.options;
     snapshotParams.style = map.style;
     snapshotParams.milieu = map.namedOptions.get('milieu');
-    namedOptions.forEach(function(name) { snapshotParams[name] = urlParams[name]; });
-    var snapshotURL = Traveller.MapService.makeURL('/api/tile', snapshotParams);
+    namedOptions.forEach(name => { snapshotParams[name] = urlParams[name]; });
+    let snapshotURL = Traveller.MapService.makeURL('/api/tile', snapshotParams);
     $('a#download-snapshot').href = snapshotURL;
     snapshotParams.accept = 'application/pdf';
     snapshotURL = Traveller.MapService.makeURL('/api/tile', snapshotParams);
@@ -166,46 +226,67 @@ window.addEventListener('DOMContentLoaded', function() {
   //
   //////////////////////////////////////////////////////////////////////
 
+  let lastX, lastY, lastMilieu;
+  let selectedSector = null;
+  let selectedWorld = null;
+  let lastRoute = null;
+  let lastQuery = null, lastQueryRoute = null;
+
+  const original_title = document.title;
+
   // Search Bar
 
   // Mutually exclusive panes:
-  var SEARCH_PANES = ['search-results', 'route-ui', 'wds-visible'];
-  function showSearchPane(pane) {
-    SEARCH_PANES.forEach(function(c) { document.body.classList.toggle(c, c === pane);  });
+  const SEARCH_PANES = ['search-results', 'route-ui', 'wds-visible', 'sds-visible'];
+  function showSearchPane(pane, title) {
+    if (!['wds-visible', 'sds-visible'].includes(pane))
+      document.body.classList.add('ds-mini');
+    SEARCH_PANES.forEach(c => { document.body.classList.toggle(c, c === pane);  });
+    map.SetRoute(null);
+
+    document.title = title ? `${title} - ${original_title}` : original_title;
   }
-  function hideSearchPanes() {
-    SEARCH_PANES.forEach(function(c) { document.body.classList.remove(c); });
+
+  function hideSearch() {
+    document.body.classList.remove('search-results');
+    map.SetRoute(null);
   }
-  function hideSearchPanesExcept(pane) {
-    SEARCH_PANES
-      .filter(function(c) { return c !== pane; })
-      .forEach(function(c) { document.body.classList.remove(c); });
+
+  function hideCards() {
+    document.body.classList.remove('wds-visible');
+    document.body.classList.remove('sds-visible');
+    document.body.classList.add('ds-mini');
+    document.title = original_title;
   }
 
 
-  $("#searchForm").addEventListener('submit', function(e) {
-    search($('#searchBox').value);
-    e.preventDefault();
+  $("#searchForm").addEventListener('submit', event => {
+    search($('#searchBox').value, {onsubmit: true});
+    event.preventDefault();
   });
 
-  var SEARCH_TIMER_DELAY = 250; // ms
-  $("#searchBox").addEventListener('keyup', Util.debounce(function(e) {
-    search($('#searchBox').value, {typed: true});
+  $("#searchBox").addEventListener('focus', event => {
+    search($('#searchBox').value, {onfocus: true});
+  });
+
+  const SEARCH_TIMER_DELAY = 100; // ms
+  $("#searchBox").addEventListener('input', Util.debounce(e => {
+    if (e.key !== 'Enter') // Ignore double-submit on iOS
+      search($('#searchBox').value, {typed: true});
   }, SEARCH_TIMER_DELAY));
 
-  $('#closeResultsBtn').addEventListener('click', function() {
+  $('#closeSearchBtn').addEventListener('click', event => {
+    event.preventDefault();
     $('#searchBox').value = '';
     lastQuery = null;
-    document.body.classList.remove('search-results');
-  });
-
-  $('#starBtn').addEventListener('click', function() {
-    search("(default)");
+    hideSearch();
+    mapElement.focus();
   });
 
   function resizeMap() {
+    let event;
     if (typeof UIEvent === 'function') {
-      var event = new UIEvent('resize');
+      event = new UIEvent('resize');
     } else {
       event = document.createEvent('UIEvent');
       event.initUIEvent('resize', true, false, window, 0);
@@ -213,89 +294,211 @@ window.addEventListener('DOMContentLoaded', function() {
     (window.dispatchEvent || window.fireEvent)(event);
   }
 
-  $("#routeBtn").addEventListener('click', function(e) {
+  $("#routeBtn").addEventListener('click', event => {
+    if (selectedWorld) {
+      setRouteStart(selectedWorld.name, selectedWorld.hex, selectedSector);
+      if (!isSmallScreen) $('#routeEnd').focus();
+    } else {
+      if (!isSmallScreen) $('#routeStart').focus();
+    }
+    showRoute();
+  });
+
+  // Track precise route start/end location to use by default, as
+  // world names can be ambiguous (e.g. Inthe and Aramis in SPIN)
+  let routeStart = undefined, routeEnd = undefined;
+  function setRouteStart(name, hex, sector) {
+    $('#routeStart').value = name;
+    routeStart = { name, hex, sector };
+  }
+  function setRouteEnd(name, hex, sector) {
+    $('#routeEnd').value = name;
+    routeEnd= { name, hex, sector };
+  }
+  function clearRouteStart() {
+    $('#routeStart').value = '';
+    routeStart = undefined;
+  }
+  function clearRouteEnd() {
+    $('#routeEnd').value = '';
+    routeEnd = undefined;
+  }
+  $('#routeStart').addEventListener('change', event => {
+    routeStart = undefined;
+  });
+  $('#routeEnd').addEventListener('change', event => {
+    routeEnd = undefined;
+  });
+
+
+  function showRoute() {
+    hidePanels();
+    hideCards();
     showSearchPane('route-ui');
     resizeMap();
-    $('#routeStart').focus();
-  });
+  }
 
-  $('#closeRouteBtn').addEventListener('click', function(e) {
-    $('#routeStart').value = '';
-    $('#routeEnd').value = '';
+  function closeRoute() {
+    document.body.classList.remove('route-ui');
+    resizeMap();
+    document.body.classList.remove('route-shown');
+    clearRouteStart();
+    clearRouteEnd();
     $('#routePath').innerHTML = '';
-    ['J-1','J-2','J-3','J-4','J-5','J-6'].forEach(function(n) {
+    jump_button_ids.forEach(n => {
       $('#routeForm').classList.remove(n);
     });
-    document.body.classList.remove('route-ui');
     map.SetRoute(null);
     lastRoute = null;
-    resizeMap();
+  }
+
+  $('#routeStart').addEventListener('keydown', event => {
+    if (event.ctrlKey || event.altKey || event.metaKey)
+      return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      $('#routeEnd').focus();
+    }
   });
 
-  Array.from($$("#routeForm button")).forEach(function(button) {
-    button.addEventListener('click', function(e) {
-      e.preventDefault();
+  $('#routeEnd').addEventListener('keydown', event => {
+    if (event.ctrlKey || event.altKey || event.metaKey)
+      return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
 
-      ['J-1','J-2','J-3','J-4','J-5','J-6'].forEach(function(n) {
+      $('#routePath').innerHTML = '';
+      let found = false;
+      jump_button_ids.forEach(n => {
+        if ($('#routeForm').classList.contains(n)) {
+          found = true;
+          $('#'+n).click();
+        }
+      });
+      if (!found)
+        $('#J-2').click();
+    }
+  });
+
+  $('#closeRouteBtn').addEventListener('click', event => {
+    event.preventDefault();
+    closeRoute();
+  });
+
+  $('#swapRouteBtn').addEventListener('click', event => {
+    event.preventDefault();
+    [$('#routeStart').value, $('#routeEnd').value] = [$('#routeEnd').value, $('#routeStart').value];
+    [routeStart, routeEnd] = [routeEnd, routeStart];
+    $('#routePath').innerHTML = '';
+    jump_button_ids.forEach(n => {
+      if ($('#routeForm').classList.contains(n))
+        $('#'+n).click();
+    });
+  });
+
+  $$('#routeForm button[name="jump"]').forEach(button => {
+    button.addEventListener('click', event => {
+      event.preventDefault();
+
+      jump_button_ids.forEach(n => {
         $('#routeForm').classList.remove(n);
       });
       $('#routeForm').classList.add(button.id);
 
-      var start = $('#routeStart').value;
-      var end = $('#routeEnd').value;
-      var jump = button.id.replace('J-', '');;
-
+      const start = routeStart ? `${routeStart.sector} ${routeStart.hex}` : $('#routeStart').value;
+      const end = routeEnd ? `${routeEnd.sector} ${routeEnd.hex}` : $('#routeEnd').value;
+      const jump = button.dataset.parsecs;
       route(start, end, jump);
     });
   });
 
-  Array.from($$('#routeForm input[type="checkbox"]')).forEach(function(input) {
-    input.addEventListener('click', function(e) {
+  $$('#routeForm input[type="checkbox"]').forEach(input => {
+    input.addEventListener('click', event => {
       if ($('#routePath').innerHTML !== '')
         reroute();
     });
   });
 
-  var VK_ESCAPE = KeyboardEvent.DOM_VK_ESCAPE || 0x1B,
-      VK_C = KeyboardEvent.DOM_VK_C || 0x43,
-      VK_H = KeyboardEvent.DOM_VK_H || 0x48,
-      VK_T = KeyboardEvent.DOM_VK_T || 0x54;
-
-  document.body.addEventListener('keyup', function(e) {
-    if (e.keyCode === VK_ESCAPE) {
-      hideSearchPanes();
-      map.SetMain(null);
-      $('#dragContainer').focus();
+  let ignoreNextKeyUp = false;
+  document.body.addEventListener('keyup', event => {
+    if (ignoreNextKeyUp) {
+      ignoreNextKeyUp = false;
+      return;
     }
-  });
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+
+      hidePanels();
+      hideSearch();
+      hideCards();
+      selectedWorld = selectedSector = null;
+      closeRoute();
+
+      map.SetMain(null);
+      map.SetRoute(null);
+
+      mapElement.focus();
+    }
+  }, {capture: true});
 
   // Options Bar
 
-  var PANELS = ['legend', 'lab', 'milieu', 'settings', 'share', 'download', 'help'];
-  PANELS.forEach(function(b) {
-    $('#'+b+'Btn').addEventListener('click', function() {
-      PANELS.forEach(function(p) {
-        document.body.classList[b === p ? 'toggle' : 'remove']('show-' + p);
-      });
+  const PANELS = ['legend', 'more'];
+  const TABS = ['lab', 'milieu', 'settings', 'share', 'help'];
+
+  function showPanel(shown) {
+    PANELS.forEach(p => {
+      document.body.classList[p === shown ? 'add' : 'remove'](`show-${p}`);
+    });
+  }
+
+  function togglePanel(shown) {
+    PANELS.forEach(p => {
+      document.body.classList[p === shown ? 'toggle' : 'remove'](`show-${p}`);
+    });
+  }
+
+  function hidePanels() {
+    PANELS.forEach(p => {
+      document.body.classList.remove(`show-${p}`);
+    });
+  }
+
+  PANELS.forEach(p => {
+    $('#'+p+'Btn').addEventListener('click', () => {
+      togglePanel(p);
     });
   });
-  document.body.addEventListener('keyup', function(e) {
-    if (e.keyCode === VK_ESCAPE) {
-      PANELS.forEach(function(p) {
-        document.body.classList.remove('show-' + p);
-      });
-    }
+
+  function showTab(shown) {
+    TABS.forEach(p => {
+      document.body.classList[shown === p ? 'add' : 'remove'](`show-${p}`);
+    });
+  }
+
+  TABS.forEach(p => {
+    $('#'+p+'Btn').addEventListener('click', () => {
+      showTab(p);
+    });
   });
 
-  var STYLES = ['poster', 'atlas', 'print', 'candy', 'draft', 'fasa'];
-  STYLES.forEach(function(s) {
-    $('#settingsBtn-'+s).addEventListener('click', function() { map.style = s; });
+  const STYLES = ['poster', 'atlas', 'print', 'candy', 'draft', 'fasa', 'terminal', 'mongoose'];
+  STYLES.forEach(s => {
+    $('#settingsBtn-'+s).addEventListener('click', () => { map.style = s; });
   });
+  $$('.styles-pager').forEach(element => {
+    element.addEventListener('click', () => { $('#styles').classList.toggle('p2'); });
+  });
+
 
   $('#homeBtn').addEventListener('click', goHome);
+  $('#homeBtn2').addEventListener('click', goHome);
 
   function goHome() {
-    if (['sx', 'sy', 'hx', 'hy'].every(function(p) { return ('yah_' + p) in urlParams; })) {
+    if (['sx', 'sy', 'hx', 'hy'].every(p => (`yah_${p}`) in urlParams)) {
       map.CenterAtSectorHex(
         urlParams.yah_sx|0, urlParams.yah_sy|0,
         urlParams.yah_hx|0, urlParams.yah_hy|0,
@@ -308,55 +511,78 @@ window.addEventListener('DOMContentLoaded', function() {
     map.y = home.y;
   }
 
-  Array.from($$('#share-url,#share-embed')).forEach(function(input) {
-    input.addEventListener('click', function(e) {
-      e.preventDefault();
+  $$('#share-url,#share-code').forEach(input => {
+    input.addEventListener('click', event => {
+      event.preventDefault();
       input.focus();
+      input.select();
       input.setSelectionRange(0, input.value.length); // .select() fails on iOS
     });
-    input.addEventListener('mouseup', function(e) {
-      e.preventDefault();
+    input.addEventListener('mouseup', event => {
+      event.preventDefault();
     });
   });
 
   // Nav Bar
 
-  $('#zoomInBtn').addEventListener('click', map.ZoomIn.bind(map));
-  $('#zoomOutBtn').addEventListener('click', map.ZoomOut.bind(map));
-  $('#tiltBtn').addEventListener('click', toggleTilt);
-
-  function toggleTilt() {
-    $('#cbTilt').click();
-  };
+  $('#zoomInBtn').addEventListener('click', () => map.ZoomIn());
+  $('#zoomOutBtn').addEventListener('click', () => map.ZoomOut());
+  $('#tiltBtn').addEventListener('click', () => { $('#cbTilt').click(); });
+  $('#fsBtn').addEventListener('click', toggleFullscreen);
 
   // Bottom Panel
 
-  $("#LogoImage").addEventListener('dblclick', function() {
+  $("#LogoImage").addEventListener('dblclick', () => {
     document.body.classList.add('hide-footer');
   });
 
   // Keyboard Shortcuts
 
-  mapElement.addEventListener('keydown', function(e) {
-    if (e.ctrlKey || e.altKey || e.metaKey)
+  mapElement.addEventListener('keydown', event => {
+    if (event.ctrlKey || event.altKey || event.metaKey)
       return;
-    if (e.keyCode === VK_C) {
-      e.preventDefault();
-      e.stopPropagation();
-      showCredits(map.worldX, map.worldY, {directAction: true});
+    if (event.key === 'c') {
+      event.preventDefault();
+      event.stopPropagation();
+      updateContext(map.worldX, map.worldY, {directAction: true});
       showMain(map.worldX, map.worldY);
       return;
     }
-    if (e.keyCode === VK_H) {
-      e.preventDefault();
-      e.stopPropagation();
+    if (event.key === 'h') {
+      event.preventDefault();
+      event.stopPropagation();
       goHome();
       return;
     }
-    if (e.keyCode === VK_T) {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleTilt();
+    if (event.key === 't') {
+      event.preventDefault();
+      event.stopPropagation();
+      $('#tiltBtn').click();
+      return;
+    }
+    if (event.key === 'm') {
+      event.preventDefault();
+      event.stopPropagation();
+      showPanel('legend');
+      return;
+    }
+    if (event.key === 'f') {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleFullscreen();
+      return;
+    }
+    if (event.key === '?') {
+      event.preventDefault();
+      event.stopPropagation();
+      showPanel('more');
+      showTab('help');
+      return;
+    }
+    if (event.key === '/') {
+      event.preventDefault();
+      event.stopPropagation();
+      $('#searchBox').focus();
       return;
     }
   });
@@ -371,23 +597,22 @@ window.addEventListener('DOMContentLoaded', function() {
     map.options = (map.options & ~mask) | flags;
   }
 
-  var optionObservers = [];
+  const optionObservers = [];
 
   bindCheckedToOption('#ShowSectorGrid', Traveller.MapOptions.GridMask);
   bindCheckedToOption('#ShowSectorNames', Traveller.MapOptions.SectorsMask);
-  bindEnabled('#ShowSelectedSectorNames', function(o) { return o & Traveller.MapOptions.SectorsMask; });
+  bindEnabled('#ShowSelectedSectorNames', o => o & Traveller.MapOptions.SectorsMask);
   bindChecked('#ShowSelectedSectorNames',
-              function(o) { return o & Traveller.MapOptions.SectorsSelected; },
-              function(c) { setOptions(Traveller.MapOptions.SectorsMask, c ? Traveller.MapOptions.SectorsSelected : 0); });
-  bindEnabled('#ShowAllSectorNames', function(o) { return o & Traveller.MapOptions.SectorsMask; });
+              o => o & Traveller.MapOptions.SectorsSelected,
+              c => { setOptions(Traveller.MapOptions.SectorsMask, c ? Traveller.MapOptions.SectorsSelected : 0); });
+  bindEnabled('#ShowAllSectorNames', o => o & Traveller.MapOptions.SectorsMask);
   bindChecked('#ShowAllSectorNames',
-              function(o) { return o & Traveller.MapOptions.SectorsAll; },
-              function(c) { setOptions(Traveller.MapOptions.SectorsMask, c ? Traveller.MapOptions.SectorsAll : 0); });
+              o => o & Traveller.MapOptions.SectorsAll,
+              c => { setOptions(Traveller.MapOptions.SectorsMask, c ? Traveller.MapOptions.SectorsAll : 0); });
   bindCheckedToOption('#ShowGovernmentBorders', Traveller.MapOptions.BordersMask);
   bindCheckedToNamedOption('#ShowRoutes', 'routes');
   bindCheckedToOption('#ShowGovernmentNames', Traveller.MapOptions.NamesMask);
   bindCheckedToOption('#ShowImportantWorlds', Traveller.MapOptions.WorldsMask);
-  bindCheckedToOption('#cbForceHexes', Traveller.MapOptions.ForceHexes);
   bindCheckedToOption('#cbWorldColors', Traveller.MapOptions.WorldColors);
   bindCheckedToOption('#cbFilledBorders',Traveller.MapOptions.FilledBorders);
   bindCheckedToNamedOption('#cbDimUnofficial', 'dimunofficial');
@@ -396,56 +621,64 @@ window.addEventListener('DOMContentLoaded', function() {
 
   bindCheckedToNamedOption('#cbImpOverlay', 'im');
   bindCheckedToNamedOption('#cbPopOverlay', 'po');
+  bindCheckedToNamedOption('#cbCapitalOverlay', 'cp');
   bindCheckedToNamedOption('#cbDroyneWorlds', 'dw');
   bindCheckedToNamedOption('#cbAncientWorlds', 'an');
   bindCheckedToNamedOption('#cbMinorHomeworlds', 'mh');
   bindCheckedToNamedOption('#cbStellar', 'stellar');
-  bindChecked('#cbWave',
-              function(o) { return map.namedOptions.get('ew'); },
-              function(c) {
-                if (c) {
-                  map.namedOptions.set('ew', 'milieu');
-                } else {
-                  map.namedOptions.delete('ew');
-                  delete urlParams['ew'];
-                }});
+  bindCheckedToNamedOption('#cbQZ', 'qz');
+
+  // Overlays that take "milieu" or a year
+  [['#cbWave', 'ew'], ['#cbAS', 'as']].forEach(pair => {
+    const [id, op] = pair;
+    bindChecked(id,
+                o => map.namedOptions.get(op),
+                c => {
+                  if (c) {
+                    map.namedOptions.set(op, 'milieu');
+                  } else {
+                    map.namedOptions.delete(op);
+                    delete urlParams[op];
+                  }
+                });
+  });
 
   function bindControl(selector, property, onChange, event, onEvent) {
-    var element = $(selector);
-    optionObservers.push(function(o) { element[property] = onChange(o); });
-    element.addEventListener(event, function() { onEvent(element); });
+    const element = $(selector);
+    optionObservers.push(o => { element[property] = onChange(o); });
+    element.addEventListener(event, () => { onEvent(element); });
   }
   function bindChecked(selector, onChange, onEvent) {
-    bindControl(selector, 'checked', onChange, 'click', function(e) { onEvent(e.checked); });
+    bindControl(selector, 'checked', onChange, 'click', element => { onEvent(element.checked); });
   }
   function bindEnabled(selector, onChange) {
-    var element = $(selector);
-    optionObservers.push(function(o) { element.disabled = !onChange(o); });
+    const element = $(selector);
+    optionObservers.push(o => { element.disabled = !onChange(o); });
   }
   function bindCheckedToOption(selector, bitmask) {
     bindChecked(selector,
-                function(o) { return (o & bitmask); },
-                function(c) { setOptions(bitmask, c ? bitmask : 0); });
+                o => (o & bitmask),
+                c => { setOptions(bitmask, c ? bitmask : 0); });
   }
   function bindCheckedToNamedOption(selector, name) {
     bindChecked(selector,
-                function() { var v = map.namedOptions.get(name);
-                             return v === undefined ? defaults[name] : v; },
-                function(c) {
+                () => { const v = map.namedOptions.get(name);
+                        return v === undefined ? defaults[name] : v; },
+                c => {
                   if (!!c === !!defaults[name]) {
                     delete urlParams[name];
                     map.namedOptions.delete(name);
                   } else map.namedOptions.set(name, c ? 1 : 0); });
   }
   function bindRadioToNamedOption(selector, name) {
-    optionObservers.push(function(o) {
-      var v = map.namedOptions.get(name);
+    optionObservers.push(o => {
+      let v = map.namedOptions.get(name);
       if (v === undefined) v = defaults[name];
-      var e = $(selector + '[value="' +  v + '"]');
+      const e = $(`${selector}[value="${v}"]`);
       if (e) e.checked = true;
     });
-    Array.from($$(selector)).forEach(function(elem) {
-      elem.addEventListener('click', function(event) {
+    $$(selector).forEach(elem => {
+      elem.addEventListener('click', event => {
         if (elem.value === defaults[name]) {
           delete urlParams[name];
           map.namedOptions.delete(name);
@@ -456,99 +689,123 @@ window.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  map.OnOptionsChanged = function(options) {
-    optionObservers.forEach(function(o) { o(options); });
+  const EVENT_DEBOUNCE_MS = 10;
+
+  map.OnOptionsChanged = Util.debounce(options => {
+    optionObservers.forEach(o => { o(options); });
     $('#legendBox').classList.toggle('world_colors', options & Traveller.MapOptions.WorldColors);
-    showCredits(lastX || map.worldX, lastY || map.worldY, {refresh: true});
-    updatePermalink();
-    savePreferences();
-  };
-
-  map.OnStyleChanged = function(style) {
-    STYLES.forEach(function(s) {
-      document.body.classList.toggle('style-' + s, s === style);
+    map.namedOptions.NAMES.forEach(name => {
+      $('#legendBox').classList.toggle(`opt-${name}`, !!map.namedOptions.get(name));
     });
+    updateContext(lastX || map.worldX, lastY || map.worldY, {refresh: true});
     updatePermalink();
-    updateSectorLinks();
+    savePreferences();
+  }, EVENT_DEBOUNCE_MS);
+
+  map.OnStyleChanged = Util.debounce(style => {
+    STYLES.forEach(s => {
+      document.body.classList.toggle(`style-${s}`, s === style);
+    });
+    updateContext(lastX || map.worldX, lastY || map.worldY, {refresh: true});
+    updatePermalink();
     updateScaleIndicator();
     savePreferences();
-  };
+  }, EVENT_DEBOUNCE_MS);
 
-  map.OnScaleChanged = function() {
+  map.OnScaleChanged = Util.debounce(() => {
+    updateContext(lastX || map.worldX, lastY || map.worldY);
     updatePermalink();
-    updateSectorLinks();
     updateScaleIndicator();
     savePreferences();
-  };
+  }, EVENT_DEBOUNCE_MS);
 
-  map.OnPositionChanged = function() {
-    showCredits(map.worldX, map.worldY);
+  map.OnPositionChanged = Util.debounce(() => {
+    updateContext(map.worldX, map.worldY);
     updatePermalink();
     savePreferences();
-  };
+  }, EVENT_DEBOUNCE_MS);
 
   function post(message) {
-    if (window.parent !== window && 'postMessage' in window.parent) {
-      // Fails cross-domain in IE10-
-      try { window.parent.postMessage(message, '*'); } catch (_) {}
+    if (window.parent !== window) {
+      window.parent.postMessage(message, '*');
     }
   }
 
-  map.OnClick = function(world) {
-    showCredits(world.x, world.y, {directAction: true});
-    showMain(world.x, world.y);
-    post({source: 'travellermap', type: 'click', location: world});
+  map.OnClick = data => {
+    hidePanels();
+    updateContext(data.x, data.y, {directAction: true, activeElement: data.activeElement});
+    showMain(data.x, data.y);
+    post({source: 'travellermap', type: 'click', location: {x: data.x, y: data.y}});
   };
 
-  map.OnDoubleClick = function(world) {
-    showCredits(world.x, world.y, {directAction: true});
+  map.OnDoubleClick = world => {
+    hidePanels();
+    updateContext(world.x, world.y, {directAction: true});
     showMain(world.x, world.y);
     post({source: 'travellermap', type: 'doubleclick', location: world});
   };
 
 
-  var NAMED_OPTIONS = [
-    'routes', 'dimunofficial',
-    'milieu',
-    'im', 'po', 'dw', 'an', 'mh', 'stellar'
-  ];
-
   // TODO: Generalize URLParam<->Control and URLParam<->Style binding
-  var PARAM_OPTIONS = [
+  const PARAM_OPTIONS = [
     {param: 'galdir', selector: '#cbGalDir', className: 'show-directions', 'default': true},
     {param: 'tilt', selector: '#cbTilt', className: 'tilt', 'default': false,
-     onchange: function(flag) { if (flag) map.EnableTilt(); }
+     onchange: flag => { if (flag) map.EnableTilt(); }
     },
     {param: 'mains', selector: '#cbMains', className: 'show-mains', 'default': false,
-     onchange: function(flag) { if (!flag) map.SetMain(null); }
+     onchange: flag => { if (!flag) map.SetMain(null); }
     }
   ];
-  PARAM_OPTIONS.forEach(function(option) {
-    $(option.selector).checked = option['default'];
+  PARAM_OPTIONS.forEach(option => {
+    const elem = $(option.selector);
+    elem.checked = option['default'];
     document.body.classList.toggle(option.className, option['default']);
-    $(option.selector).addEventListener('click', function() {
-      document.body.classList.toggle(option.className, this.checked);
+    elem.addEventListener('click', () => {
+      document.body.classList.toggle(option.className, elem.checked);
       updatePermalink();
       savePreferences();
       if (option.onchange)
-        option.onchange(this.checked);
+        option.onchange(elem.checked);
     });
   });
 
-  (function() {
+
+  $('#btnResetPrefs').addEventListener('click', event => {
+    event.preventDefault();
+
+    map.namedOptions.NAMES.forEach(name => {
+      delete urlParams[name];
+      if (!(name in defaults))
+        map.namedOptions.delete(name);
+      else
+        map.namedOptions.set(name, defaults[name]);
+    });
+    PARAM_OPTIONS.forEach(option => {
+      $(option.selector).checked = option['default'];
+      document.body.classList.toggle(option.className, option['default']);
+      if (option.onchange) option.onchange(option.default);
+    });
+    map.options = defaults.options;
+    updatePermalink();
+    savePreferences();
+  });
+
+  (() => {
     if (isIframe) return;
-    var preferences = JSON.parse(localStorage.getItem('preferences'));
-    var location = JSON.parse(localStorage.getItem('location'));
-    var experiments = JSON.parse(localStorage.getItem('experiments'));
+    const preferences = JSON.parse(localStorage.getItem('preferences'));
+    const location = JSON.parse(localStorage.getItem('location'));
     if (preferences) {
-      $('#cbSavePreferences').checked = true;
       if ('style' in preferences) map.style = preferences.style;
       if ('options' in preferences) map.options = preferences.options;
-      NAMED_OPTIONS.forEach(function(name) {
-        if (name in preferences) map.namedOptions.set(name, preferences[name]);
+      map.namedOptions.NAMES.forEach(name => {
+        if (name in preferences) {
+          const value = preferences[name];
+          if (value !== '')
+            map.namedOptions.set(name, value);
+        }
       });
 
-      PARAM_OPTIONS.forEach(function(option) {
+      PARAM_OPTIONS.forEach(option => {
         if (option.param in preferences) {
           document.body.classList.toggle(option.className, preferences[option.param]);
           if (option.onchange)
@@ -558,49 +815,57 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 
     if (location) {
-      $('#cbSaveLocation').checked = true;
       if ('scale' in location) map.scale = location.scale;
       if ('position' in location) { map.x = location.position.x; map.y = location.position.y; }
     }
+  })();
 
-    if (experiments) {
-      $('#cbExperiments').checked = true;
-      document.body.classList.add('enable-experiments');
-    }
-  }());
+  // Overlay to allow quick return to default milieu.
+  optionObservers.push(o => {
+    const milieu = map.namedOptions.get('milieu') || defaults.milieu;
+    $('#milieu-field').innerText = milieu;
+    $('#milieu-field-default').innerText = defaults.milieu;
+    document.body.classList.toggle(
+      'milieu-not-default', milieu !== defaults.milieu);
 
-  $('#cbSavePreferences').addEventListener('click', savePreferences);
-  $('#cbSaveLocation').addEventListener('click', savePreferences);
-  $('#cbExperiments').addEventListener('click', function() {
-    savePreferences();
-    document.body.classList.toggle('enable-experiments', this.checked);
+    milieu_choices.forEach(m => {
+      document.body.classList.toggle('milieu-' + m, m === milieu);
+    });
   });
-
+  $('#milieu-escape').addEventListener('click', event => {
+    map.namedOptions.set('milieu', defaults.milieu);
+  });
 
   //
   // Pull in options from URL - from permalinks
   //
   // Call this AFTER data binding is hooked up so UI is synchronized
   //
-  var standalone = 'standalone' in window.navigator && window.navigator.standalone;
-  var urlParams = standalone ? {} : map.ApplyURLParameters();
+  const standalone = 'standalone' in window.navigator && window.navigator.standalone;
+  const urlParams = standalone ? {} : map.ApplyURLParameters();
 
   // Force UI to synchronize in case URL parameters didn't do it
   map.OnOptionsChanged(map.options);
 
   if (isIframe) {
-    var forceui = ('forceui' in urlParams) && Boolean(Number(urlParams.forceui));
+    const forceui = ('forceui' in urlParams) && Boolean(Number(urlParams.forceui));
     if (forceui)
       document.body.classList.remove('hide-ui');
   } else {
-    document.body.classList.remove('hide-ui');
-    document.body.classList.remove('hide-footer');
+    const hideui = ('hideui' in urlParams) && Boolean(Number(urlParams.hideui));
+    if (!hideui) {
+      document.body.classList.remove('hide-ui');
+      document.body.classList.remove('hide-footer');
+    }
+  }
+  if (document.body.classList.contains('hide-ui')) {
+    mapElement.title = '';
   }
 
-  var dirty = false;
-  PARAM_OPTIONS.forEach(function(option) {
+  let dirty = false;
+  PARAM_OPTIONS.forEach(option => {
     if (option.param in urlParams) {
-      var show = Boolean(Number(urlParams[option.param]));
+      const show = Boolean(Number(urlParams[option.param]));
       document.body.classList.toggle(option.className, show);
       dirty = true;
     }
@@ -608,52 +873,38 @@ window.addEventListener('DOMContentLoaded', function() {
   });
   if (dirty) updatePermalink();
 
-  ['q', 'qn'].forEach(function(key) {
-    if (key in urlParams) {
-      $('#searchBox').value = urlParams[key];
-      search(urlParams[key], {navigate: key === 'qn'});
-    }
-  });
-
-  if ('attract' in urlParams) {
-    // TODO: Disable UI, or make any UI interaction cancel
-    doAttract();
-  }
-
   //////////////////////////////////////////////////////////////////////
   //
   // Attract Mode
   //
   //////////////////////////////////////////////////////////////////////
 
-  function doAttract() {
-    function pickTarget() {
-      return Traveller.MapService.search('(random world)', {
+  async function doAttract() {
+    async function pickTarget() {
+      const data = await Traveller.MapService.search('(random world)', {
         milieu: map.namedOptions.get('milieu')
-      }, 'POST').then(function(data) {
-        var items = data.Results.Items;
-        if (items.length < 1)
-          throw new Error('random world search failed');
-        var world = items[0].World;
-        var tags = world.SectorTags.split(/\s+/);
-        return tags.includes('OTU') ? world : pickTarget();
-      });
+      }, 'POST');
+      const items = data.Results.Items;
+      if (items.length < 1)
+        throw new Error('random world search failed');
+      const world = items[0].World;
+      const tags = world.SectorTags.split(/\s+/);
+      return tags.includes('OTU') ? world : await pickTarget();
     }
 
-    var HOME_WAIT_MS = 5e3;
-    var TARGET_WAIT_MS = 10e3;
+    const HOME_WAIT_MS = 5e3;
+    const TARGET_WAIT_MS = 20e3;
 
     goHome();
-    pickTarget().then(function(world) {
-      var target = Traveller.Astrometrics.sectorHexToMap(
-        world.SectorX, world.SectorY, world.HexX, world.HexY);
-      setTimeout(function() {
-        map.animateTo(128, target.x, target.y, 10).then(function() {
-          showCredits(map.worldX, map.worldY, {directAction: true});
-          setTimeout(doAttract, TARGET_WAIT_MS);
-        });
-      }, HOME_WAIT_MS);
-    });
+    const world = await pickTarget();
+    const target = Traveller.Astrometrics.sectorHexToMap(
+      world.SectorX, world.SectorY, world.HexX, world.HexY);
+    hideCards();
+    setTimeout(async () => {
+      await map.animateTo(128, target.x, target.y, 10);
+      updateContext(map.worldX, map.worldY, {directAction: true});
+      setTimeout(doAttract, TARGET_WAIT_MS);
+    }, HOME_WAIT_MS);
   }
 
   //////////////////////////////////////////////////////////////////////
@@ -662,24 +913,32 @@ window.addEventListener('DOMContentLoaded', function() {
   //
   //////////////////////////////////////////////////////////////////////
 
-  var dataRequest = null;
-  var dataTimeout = 0;
-  var lastX, lastY, lastMilieu;
-  var selectedSector = null;
-  var selectedWorld = null;
-  var enableCredits;
+  let dataRequest = null;
+  let dataTimeout = 0;
+  let ignoreIndirect = true;
+  let enableContext;
 
-  function showCredits(worldX, worldY, options) {
-    if (!enableCredits)
+  function makeWikiURL(suffix) {
+    return 'https://wiki.travellerrpg.com/' + encodeURIComponent(suffix.replace(/ /g, '_'));
+  }
+
+  function updateContext(worldX, worldY, options) {
+    if (!enableContext || document.body.classList.contains('hide-ui'))
       return;
 
-    options = options || {};
+    options = Object.assign({}, options);
 
-    var DATA_REQUEST_DELAY_MS = 500;
-    var milieu = map.namedOptions.get('milieu');
-
-    if (!options.directAction && lastX === worldX && lastY === worldY && lastMilieu === milieu)
+    if (ignoreIndirect && !options.directAction)
       return;
+    ignoreIndirect = options.ignoreIndirect;
+
+    const DATA_REQUEST_DELAY_MS = 100;
+    const milieu = map.namedOptions.get('milieu');
+
+    if (!(options.directAction || options.refresh)
+        && lastX === worldX && lastY === worldY && lastMilieu === milieu)
+      return;
+
     lastX = worldX;
     lastY = worldY;
     lastMilieu = milieu;
@@ -692,24 +951,26 @@ window.addEventListener('DOMContentLoaded', function() {
     if (dataTimeout)
       window.clearTimeout(dataTimeout);
 
-    dataTimeout = setTimeout(function() {
-      dataRequest = Util.ignorable(Traveller.MapService.credits(worldX, worldY, {
-        milieu: milieu
-      }));
-      dataRequest.then(function(data) {
-          dataRequest = null;
-          displayResults(data);
-        });
-
-    }, options.directAction || options.refresh ? 0 : DATA_REQUEST_DELAY_MS);
+    if (map.scale < 1) {
+      displayResults({});
+    } else {
+      dataTimeout = setTimeout(async () => {
+        dataRequest = Util.ignorable(Traveller.MapService.credits(worldX, worldY, {
+          milieu
+        }));
+        const data = await dataRequest;
+        dataRequest = null;
+        displayResults(data);
+      }, options.directAction || options.refresh ? 0 : DATA_REQUEST_DELAY_MS);
+    }
 
     function displayResults(data) {
       if ('SectorTags' in data) {
-        var tags =  String(data.SectorTags).split(/\s+/);
+        const tags =  String(data.SectorTags).split(/\s+/);
         data.Unofficial = true;
         ['Official', 'InReview', 'Unreviewed', 'Apocryphal', 'Preserve']
-          .filter(function(tag) { return tags.includes(tag); })
-          .forEach(function(tag) {
+          .filter(tag => tags.includes(tag))
+          .forEach(tag => {
             delete data.Unofficial;
             data[tag] = true;
           });
@@ -718,140 +979,223 @@ window.addEventListener('DOMContentLoaded', function() {
       }
 
       data.Attribution = ['SectorAuthor', 'SectorSource', 'SectorPublisher']
-        .filter(function(p) { return p in data; })
-        .map(function(p) { return data[p]; })
+        .filter(p => p in data)
+        .map(p => data[p])
         .join(', ');
 
-      // Other UI
-      if ('SectorName' in data && 'SectorTags' in data) {
-        selectedSector = data.SectorName.replace(/ Sector$/, '');
+      if (data.SectorName) {
+        data.SectorWikiURL = makeWikiURL(`${data.SectorName} Sector`);
+        data.SectorWikiURLNoScheme = data.SectorWikiURL.replace(/^\w+:\/\//, '');
+        data.BookletURL = Traveller.MapService.makeURL(
+          `/data/${encodeURIComponent(data.SectorName)}/booklet`, {
+            milieu
+          });
 
-        // Treat world as "selected" if (1) in the data, (2) scale is appropriate,
-        // and (3) either this is a direct action (e.g. click) or a refresh
-        selectedWorld =
-          'WorldHex' in data &&
-          map.scale > 16 &&
-          (options.directAction || selectedWorld)
+        data.PosterURL = Traveller.MapService.makeURL('/api/poster', {
+          sector: data.SectorName,
+          accept: 'application/pdf',
+          style: map.style,
+          options: map.options,
+          milieu
+        });
+        data.DataURL = Traveller.MapService.makeURL('/api/sec', {
+          sector: data.SectorName, type: 'SecondSurvey',
+          milieu
+        });
+        data.TSVDataURL = Traveller.MapService.makeURL('/api/sec', {
+          sector: data.SectorName, type: 'TabDelimited',
+          milieu
+        });
+      }
+
+      if (data.SectorY)
+        data.SectorY = -data.SectorY;
+
+      // Credits
+      $('#MetadataDisplay').innerHTML = template('#MetadataTemplate')(data);
+
+      // Sector/World Data Sheets
+      if (options.directAction && document.body.classList.contains('route-ui')) {
+        selectedSector = null;
+        selectedWorld = null;
+        if (options.activeElement === $('#routeStart')) {
+          if (data.WorldName) {
+            setRouteStart(data.WorldName, data.WorldHex, data.SectorName);
+            $('#routeEnd').focus();
+          } else {
+            $('#routeStart').focus();
+          }
+        } else if (options.activeElement === $('#routeEnd')) {
+          if (data.WorldName) {
+            setRouteEnd(data.WorldName, data.WorldHex, data.SectorName);
+            $('#J-2').click();
+          } else {
+            $('#routeEnd').focus();
+          }
+        } else if ($('#routeStart').value === '' && data.WorldName) {
+          setRouteStart(data.WorldName, data.WorldHex, data.SectorName);
+          if (!isSmallScreen) $('#routeEnd').focus();
+        } else if ($('#routeEnd').value === '' && data.WorldName) {
+          setRouteEnd(data.WorldName, data.WorldHex, data.SectorName);
+          $('#J-2').click();
+        }
+        return;
+      } else if (options.directAction && !document.body.classList.contains('route-ui')) {
+        mapElement.focus();
+        selectedSector = ('SectorName' in data && 'SectorTags' in data) ? data.SectorName : null;
+        selectedWorld = map.scale > 16 && 'WorldHex' in data
           ? { name: data.WorldName, hex: data.WorldHex } : null;
-        updateSectorLinks();
+      } else if (options.refresh) {
+        // Keep as-is
       } else {
         selectedSector = null;
         selectedWorld = null;
       }
 
-      document.body.classList.toggle('sector-selected', selectedSector);
-      document.body.classList.toggle('world-selected', selectedWorld);
-      if (selectedWorld) {
-        hideSearchPanesExcept('wds-visible');
-      } else {
-        document.body.classList.remove('wds-visible');
-      }
+      if (options.directAction) {
+        document.body.classList.toggle('sector-selected', selectedSector);
+        document.body.classList.toggle('world-selected', selectedWorld);
 
-      $('#MetadataDisplay').innerHTML = template('#MetadataTemplate')(data);
+        if (selectedWorld) {
+          showWorldData();
+        } else if (selectedSector) {
+          showSectorData(data);
+        } else {
+          hideCards();
+        }
+      }
     }
   }
 
-  function updateSectorLinks() {
-    if (!selectedSector)
+  async function showSectorData(data) {
+    $('#sds-data').innerHTML = template('#sds-template')(data);
+
+    // Hook up toggle
+    $$('#sds-data .ds-mini-toggle, .sds-sectorname').forEach(element => {
+      element.addEventListener('click', event => {
+        document.body.classList.toggle('ds-mini');
+      });
+    });
+
+    showSearchPane('sds-visible', data.SectorName);
+  }
+
+  async function showWorldData() {
+    if (!selectedWorld)
       return;
-    var milieu = map.namedOptions.get('milieu');
+    const context = {
+      sector: selectedSector,
+      hex: selectedWorld.hex
+    };
+    $('#spinner').style.display = 'block';
+    const milieu = map.namedOptions.get('milieu');
 
-    var bookletURL = Traveller.MapService.makeURL(
-      '/data/' + encodeURIComponent(selectedSector) + '/booklet', {
-        milieu: milieu
-      });
-    var posterURL = Traveller.MapService.makeURL('/api/poster', {
-      sector: selectedSector, accept: 'application/pdf', style: map.style,
-      milieu: milieu
-    });
-    var dataURL = Traveller.MapService.makeURL('/api/sec', {
-      sector: selectedSector, type: 'SecondSurvey',
-      milieu: milieu
-    });
-
-    $('#downloadBox #sector-name').innerHTML = Util.escapeHTML(selectedSector + ' Sector');
-    $('#downloadBox a#download-booklet').href = bookletURL;
-    $('#downloadBox a#download-poster').href = posterURL;
-    $('#downloadBox a#download-data').href = dataURL;
-
-    if (selectedWorld) {
-
-      // Downloads > Data Sheet
-      var dataSheetURL = Util.makeURL('world', {
-        sector: selectedSector,
-        hex: selectedWorld.hex,
-        milieu: milieu
-      });
-      $('#world-data-sheet').href = dataSheetURL;
-      $('#world-data-sheet').innerHTML = Util.escapeHTML(
-        'Data Sheet: ' + selectedWorld.name + ' (' + selectedWorld.hex + ')');
-
-      // Downloads > Jump Maps
-      var options = map.options & (
-        Traveller.MapOptions.BordersMask | Traveller.MapOptions.NamesMask |
-          Traveller.MapOptions.WorldColors | Traveller.MapOptions.FilledBorders);
-      for (var j = 1; j <= 6; ++j) {
-        var jumpMapURL = Traveller.MapService.makeURL('/api/jumpmap', {
-          sector: selectedSector,
-          hex: selectedWorld.hex,
-          milieu: milieu,
-          jump: j,
-          style: map.style,
-          options: options
-        });
-        $('#downloadBox a#world-jump-map-' + j).href = jumpMapURL;
-      }
-
+    try {
       // World Data Sheet ("Info Card")
-      fetch(Traveller.MapService.makeURL(
+
+      const response = await fetch(Traveller.MapService.makeURL(
         '/api/jumpworlds?', {
-          sector: selectedSector, hex: selectedWorld.hex,
-          milieu: milieu,
-          jump: 0
-        }))
-        .then(function(response) {
-          if (!response.ok) throw Error(response.statusText);
-          return response.json();
-        })
-        .then(function(data) {
-          return Traveller.prepareWorld(data.Worlds[0]);
-        })
-        .then(function(world) {
-          if (!world) return undefined;
-          return Traveller.renderWorldImage(world, $('#wds-world-image'));
-        })
-        .then(function(world) {
-          if (!world) return;
-          Traveller.renderWorld(
-            world, $('#wds-world-template').innerHTML, $('#wds-world-data'));
+        sector: context.sector, hex: context.hex,
+        milieu,
+        jump: 0
+      }));
+      if (!response.ok) throw new Error(response.statusText);
 
-          // Hook up any generated "expandy" fields
-          Array.from($$('.wds-expandy')).forEach(function(elem) {
-            elem.addEventListener('click', function(event) {
-              var c = elem.getAttribute('data-wds-expand');
-              $('#wds-frame').classList.toggle(c);
-            });
-          });
+      const data = await response.json();
+      const world = await Traveller.prepareWorld(data.Worlds[0]);
+      if (world) {
+        await Promise.all([
+          Traveller.renderWorldImage(world, $('#wds-world-image')),
+          world.map_exists // Once resolved, `map`/`map_thumb` are set
+        ]);
 
-          // Hook up toggle
-          $('#wds-mini-toggle').addEventListener('click', function(event) {
-            $('#wds-frame').classList.toggle('wds-mini');
-          });
-
-          $('#wds-print-link').href = dataSheetURL;
-
-          showSearchPane('wds-visible');
-        })
-        .catch(function(error) {
-          console.warn('WDS error: ' + error.message);
+        // Data Sheet
+        world.DataSheetURL = Util.makeURL('print/world', {
+          sector: context.sector,
+          hex: context.hex,
+          milieu,
+          style: map.style,
+          print: true
         });
+
+        // Jump Maps
+        world.JumpMapURL = Traveller.MapService.makeURL('/api/jumpmap', {
+          sector: context.sector,
+          hex: context.hex,
+          milieu,
+          style: map.style,
+          options: map.options &
+            (Traveller.MapOptions.BordersMask | Traveller.MapOptions.NamesMask |
+             Traveller.MapOptions.WorldColors | Traveller.MapOptions.FilledBorders)
+        });
+
+        $('#wds-data').innerHTML = template('#wds-template')(world);
+
+        // Hook up any generated "expandy" fields
+        $$('.wds-expandy').forEach(elem => {
+          elem.addEventListener('click', event => {
+            const c = elem.getAttribute('data-wds-expand');
+            $('#wds-frame').classList.toggle(c);
+          });
+        });
+
+        // Hook up toggle
+        $$('#wds-data .ds-mini-toggle, #wds-data .wds-names').forEach(element => {
+            element.addEventListener('click', event => {
+              document.body.classList.toggle('ds-mini');
+            });
+        });
+
+        // Hook up buttons
+        $('#ds-route-link').addEventListener('click', event => {
+          event.preventDefault();
+          setRouteStart(world.Name, world.Hex, world.Sector);
+          if (!isSmallScreen) $('#routeEnd').focus();
+          showRoute();
+        });
+
+        $('#wds-print-ds-link').addEventListener('click', event => {
+          event.preventDefault();
+          window.open(world.DataSheetURL);
+        });
+
+        if ($('#wds-map')) {
+          $('#wds-map').addEventListener('click', event => {
+            event.preventDefault();
+            const url = event.target.getAttribute('data-map');
+            if (isSmallScreen)
+              window.open(url);
+            else
+              showLightboxImage(url);
+          });
+        }
+
+        // Make it visible
+        showSearchPane('wds-visible', world.Name);
+      }
+    } catch (error) {
+      console.warn(error);
+    } finally {
+      $('#spinner').style.display = 'none';
     }
   }
 
-  $('#wds-closebtn').addEventListener('click', function(event) {
-    hideSearchPanes();
+  $('#wds-world-image').addEventListener('click', event => {
+    document.body.classList.toggle('ds-mini');
   });
 
+  $$('#sds-closebtn,#wds-closebtn,#ds-shade').forEach(element => {
+    element.addEventListener('click', event => {
+      hideCards();
+      selectedWorld = selectedSector = null;
+    });
+  });
+
+  $$('#legend-closebtn,#more-closebtn,#panel-shade').forEach(element => {
+    element.addEventListener('click', event => {
+      hidePanels();
+    });
+  });
 
   //////////////////////////////////////////////////////////////////////
   //
@@ -859,62 +1203,67 @@ window.addEventListener('DOMContentLoaded', function() {
   //
   //////////////////////////////////////////////////////////////////////
 
-  var searchRequest = null;
-  var lastQuery = null;
+  let searchRequest = null;
 
-  function search(query, options) {
-    options = Object(options);
+  async function search(query, options) {
+    options = Object.assign({}, options);
 
-    hideSearchPanesExcept('search-results');
+    closeRoute();
+    hideCards();
+    showSearchPane('search-results');
+
+    selectedWorld = selectedSector = null;
     map.SetRoute(null);
 
-    selectedWorld = null;
-
     if (query === '')
-      return;
+      query = '(default)';
 
     if (query === lastQuery) {
-      if (!searchRequest && !options.typed)
-        showSearchPane('search-results');
+      if (!searchRequest && options.onsubmit) {
+        const links = $$('#resultsContainer a');
+        if (links.length > 0) {
+          links[0].click();
+          return;
+        }
+      }
+      map.SetRoute(lastQueryRoute);
       return;
     }
-    lastQuery = query;
-
-    if (!options.typed)
-      document.body.classList.remove('search-results');
 
     if (searchRequest)
       searchRequest.ignore();
 
-    searchRequest = Util.ignorable(Traveller.MapService.search(query, {
-      milieu: map.namedOptions.get('milieu')
-    }));
-    searchRequest
-      .then(function(data) {
-        displayResults(data);
-      }, function() {
-        $('#resultsContainer').innerHTML = '<i>Error fetching results.</i>';
-      })
-      .then(function() {
-        searchRequest = null;
-        showSearchPane('search-results');
-        if (options.navigate) {
-          var first = $('#resultsContainer a');
-          if (first)
-            first.click();
-        }
-      });
+    if (options.results) {
+      searchRequest = options.results;
+    } else {
+      searchRequest = Util.ignorable(Traveller.MapService.search(query, {
+        milieu: map.namedOptions.get('milieu')
+      }));
+    }
+    try {
+      const data = await searchRequest;
+      displayResults(data);
+    } catch (ex) {
+      $('#resultsContainer').innerHTML = '<i>Error fetching results.</i>';
+    } finally {
+      searchRequest = null;
+      if (options.navigate) {
+        const first = $('#resultsContainer a');
+        if (first)
+          first.click();
+      }
+    }
 
     // Transform the search results into clickable links
     function displayResults(data) {
-      var base_url = document.location.href.replace(/\?.*/, '');
+      const base_url = document.location.href.replace(/\?.*/, '');
 
       function applyTags(item) {
         if ('SectorTags' in item) {
-          var tags = String(item.SectorTags).split(/\s+/);
+          const tags = String(item.SectorTags).split(/\s+/);
           item.Unofficial = true;
-          ['Official', 'InReview', 'Unreviewed', 'Apocryphal', 'Preserve'].forEach(function(tag) {
-            if (tags.indexOf(tag) !== -1) {
+          ['Official', 'InReview', 'Unreviewed', 'Apocryphal', 'Preserve'].forEach(tag =>{
+            if (tags.includes(tag)) {
               delete item.Unofficial;
               item[tag] = true;
             }
@@ -926,34 +1275,39 @@ window.addEventListener('DOMContentLoaded', function() {
         return ('00' + n).slice(-2);
       }
 
-      // Pre-process the data
-      for (var i = 0; i < data.Results.Items.length; ++i) {
+      const route = [];
 
-        var item = data.Results.Items[i];
-        var sx, sy, hx, hy, scale;
+      // Pre-process the data
+      for (let i = 0; i < data.Results.Items.length; ++i) {
+
+        const item = data.Results.Items[i];
+        let sx, sy, hx, hy, scale;
 
         if (item.Subsector) {
-          var subsector = item.Subsector,
-            index = subsector.Index || 'A',
-            n = (index.charCodeAt(0) - 'A'.charCodeAt(0));
+          const subsector = item.Subsector,
+                index = subsector.Index || 'A',
+                n = (index.charCodeAt(0) - 'A'.charCodeAt(0));
           sx = subsector.SectorX|0;
           sy = subsector.SectorY|0;
           hx = (((n % 4) | 0) + 0.5) * (Traveller.Astrometrics.SectorWidth / 4);
           hy = (((n / 4) | 0) + 0.5) * (Traveller.Astrometrics.SectorHeight / 4);
           scale = subsector.Scale || 32;
-          subsector.href = Util.makeURL(base_url, {scale: scale, sx: sx, sy: sy, hx: hx, hy: hy});
+          subsector.href = Util.makeURL(base_url, {scale, sx, sy, hx, hy});
           applyTags(subsector);
         } else if (item.Sector) {
-          var sector = item.Sector;
+          const sector = item.Sector;
           sx = sector.SectorX|0;
           sy = sector.SectorY|0;
           hx = (Traveller.Astrometrics.SectorWidth / 2);
           hy = (Traveller.Astrometrics.SectorHeight / 2);
           scale = sector.Scale || 8;
-          sector.href = Util.makeURL(base_url, {scale: scale, sx: sx, sy: sy, hx: hx, hy: hy});
+          sector.href = Util.makeURL(base_url, {
+            scale, sx, sy, hx, hy,
+            sector: sector.Name
+          });
           applyTags(sector);
         } else if (item.World) {
-          var world = item.World;
+          const world = item.World;
           world.Name = world.Name || '(Unnamed)';
           sx = world.SectorX|0;
           sy = world.SectorY|0;
@@ -961,37 +1315,64 @@ window.addEventListener('DOMContentLoaded', function() {
           hy = world.HexY|0;
           world.Hex = pad2(hx) + pad2(hy);
           scale = world.Scale || 64;
-          world.href = Util.makeURL(base_url, {scale: scale, sx: sx, sy: sy, hx: hx, hy: hy});
+          let params = {scale, sx, sy, hx, hy};
+          if (!data.Tour) {
+            params = Object.assign(params,
+                                   {sector: world.Sector, world: world.Name, hex: world.Hex});
+          }
+          if (data.Route) {
+            route.push({sx:sx, sy:sy, hx:hx, hy:hy});
+          }
+          world.href = Util.makeURL(base_url, params);
           applyTags(world);
         } else if (item.Label) {
-          var label = item.Label;
+          const label = item.Label;
           sx = label.SectorX | 0;
           sy = label.SectorY | 0;
           hx = label.HexX | 0;
           hy = label.HexY | 0;
           scale = label.Scale || 64;
-          label.href = Util.makeURL(base_url, { scale: scale, sx: sx, sy: sy, hx: hx, hy: hy });
+          label.href = Util.makeURL(base_url, { scale, sx, sy, hx, hy });
           applyTags(label);
         }
       }
 
       $('#resultsContainer').innerHTML = template('#SearchResultsTemplate')(data);
 
-      Array.from(document.querySelectorAll('#resultsContainer a')).forEach(function(a) {
-        a.addEventListener('click', function(e) {
-          e.preventDefault();
+      $$('#resultsContainer a').forEach(a => {
+        a.addEventListener('click', event => {
+          event.preventDefault();
           selectedWorld = null;
 
-          var params = Util.parseURLQuery(e.target);
+          const params = Util.parseURLQuery(event.target);
           map.CenterAtSectorHex(params.sx|0, params.sy|0, params.hx|0, params.hy|0, {scale: params.scale|0});
-          if (mapElement.offsetWidth < 640)
+          if (isSmallScreen)
             document.body.classList.remove('search-results');
+
+          const coords = Traveller.Astrometrics.sectorHexToWorld(
+            params.sx|0, params.sy|0, params.hx|0, params.hy|0);
+
+          if (params.world && params.sector) {
+            selectedSector = params.sector;
+            selectedWorld = { name: params.name, hex: params.hex };
+            updateContext(coords.x, coords.y, {directAction: true, ignoreIndirect: true});
+          } else if (params.sector) {
+            selectedSector = params.sector;
+            updateContext(coords.x, coords.y, {directAction: true, ignoreIndirect: true});
+          }
         });
       });
 
-      var first = $('#resultsContainer a');
-      if (first && !options.typed)
-        setTimeout(function() { first.focus(); }, 0);
+      const first = $('#resultsContainer a');
+      if (first && !options.typed && !options.onfocus)
+        setTimeout(() => { first.focus(); }, 0);
+
+      if (route.length) {
+        map.SetRoute(route);
+      }
+
+      lastQuery = query;
+      lastQueryRoute = route.length ? route : null;
     }
   }
 
@@ -1001,79 +1382,97 @@ window.addEventListener('DOMContentLoaded', function() {
   //
   //////////////////////////////////////////////////////////////////////
 
-  var lastRoute = null;
   function reroute() {
     if (lastRoute) route(lastRoute.start, lastRoute.end, lastRoute.jump);
   }
 
-  function route(start, end, jump) {
+  async function route(start, end, jump) {
     $('#routePath').innerHTML = '';
-    lastRoute = {start:start, end:end, jump:jump};
+    lastRoute = {start, end, jump};
 
-    var options = {
-      start: start, end: end, jump: jump,
+    const options = {
+      start, end, jump,
       x: map.worldX, y: map.worldY,
       milieu: map.namedOptions.get('milieu'),
       wild: $('#route-wild').checked?1:0,
       im: $('#route-im').checked?1:0,
-      nored: $('#route-nored').checked?1:0
+      nored: $('#route-nored').checked?1:0,
+      aok: $('#route-aok').checked?1:0
     };
-    fetch(Traveller.MapService.makeURL('/api/route', options))
-      .then(function(response) {
-        if (!response.ok) return response.text();
-        return response.json();
-      })
-      .then(function(data) {
-        if (typeof data === 'string') throw new Error(data);
 
-        var base_url = document.location.href.replace(/\?.*/, '');
-        var route = [];
-        var total = 0;
-        data.forEach(function(world, index) {
-          world.Name = world.Name || '(Unnamed)';
-          var sx = world.SectorX|0;
-          var sy = world.SectorY|0;
-          var hx = world.HexX|0;
-          var hy = world.HexY|0;
-          var scale = 64;
-          world.href = Util.makeURL(base_url, {scale: 64, sx: sx, sy: sy, hx: hx, hy: hy});
+    try {
+      const response = await fetch(Traveller.MapService.makeURL('/api/route', options));
+      if (!response.ok) throw new Error(response.statusText);
 
-          if (index > 0) {
-            var prev = data[index - 1];
-            var a = Traveller.Astrometrics.sectorHexToWorld(
-              prev.SectorX|0, prev.SectorY|0, prev.HexX|0, prev.HexY|0);
-            var b = Traveller.Astrometrics.sectorHexToWorld(sx, sy, hx, hy);
-            var dist = Traveller.Astrometrics.hexDistance(a.x, a.y, b.x, b.y);
-            prev.Distance = dist;
-            total += dist;
-          }
+      const data = await response.json();
+      if (typeof data === 'string') throw new Error(data);
 
-          route.push({sx:sx, sy:sy, hx:hx, hy:hy});
+      const base_url = document.location.href.replace(/\?.*/, '');
+      const route = [];
+      let total = 0;
+      data.forEach((world, index) => {
+        world.Name = world.Name || '(Unnamed)';
+        const sx = world.SectorX|0;
+        const sy = world.SectorY|0;
+        const hx = world.HexX|0;
+        const hy = world.HexY|0;
+        const scale = 64;
+        world.href = Util.makeURL(base_url, {scale: 64, sx, sy, hx, hy});
+
+        if (index > 0) {
+          const prev = data[index - 1];
+          const a = Traveller.Astrometrics.sectorHexToWorld(
+            prev.SectorX|0, prev.SectorY|0, prev.HexX|0, prev.HexY|0);
+          const b = Traveller.Astrometrics.sectorHexToWorld(sx, sy, hx, hy);
+          const dist = Traveller.Astrometrics.hexDistance(a.x, a.y, b.x, b.y);
+          prev.Distance = dist;
+          total += dist;
+        }
+
+        route.push({sx:sx, sy:sy, hx:hx, hy:hy});
+      });
+
+      map.SetRoute(route);
+      const routeData = {
+        Route: data,
+        Distance: total,
+        Jumps: data.length - 1,
+        PrintURL: Util.makeURL('./print/route', options)
+      };
+      $('#routePath').innerHTML = template('#RouteResultsTemplate')(routeData);
+      document.body.classList.add('route-shown');
+      resizeMap();
+
+      $$('#routePath .item a').forEach(a => {
+        a.addEventListener('click', event => {
+          event.preventDefault();
+          selectedWorld = null;
+
+          const params = Util.parseURLQuery(event.target);
+          map.CenterAtSectorHex(params.sx|0, params.sy|0, params.hx|0, params.hy|0, {scale: params.scale|0});
+        });
         });
 
-        map.SetRoute(route);
-        $('#routePath').innerHTML = template('#RouteResultsTemplate')({
+      $('#copy-route').addEventListener('click', event => {
+        event.preventDefault();
+        Util.copyTextToClipboard(template('#RouteResultsTextTemplate')({
           Route: data,
           Distance: total,
-          Jumps: data.length - 1,
-          PrintURL: Util.makeURL('./print/route', options)
-        });
-
-        Array.from(document.querySelectorAll('#routePath .item a')).forEach(function(a) {
-          a.addEventListener('click', function(e) {
-            e.preventDefault();
-            selectedWorld = null;
-
-            var params = Util.parseURLQuery(e.target);
-            map.CenterAtSectorHex(params.sx|0, params.sy|0, params.hx|0, params.hy|0, {scale: params.scale|0});
-          });
-        });
-
-      })
-      .catch(function(reason) {
-        $('#routePath').innerHTML = template('#RouteErrorTemplate')({Message: reason.message});
-        map.SetRoute(null);
+          Jumps: data.length - 1
+        }));
       });
+
+      $('#print-route').addEventListener('click', event => {
+        event.preventDefault();
+        window.open(routeData.PrintURL);
+      });
+
+    } catch (reason) {
+      $('#routePath').innerHTML = template('#RouteErrorTemplate')({Message: reason.message});
+      map.SetRoute(null);
+      document.body.classList.add('route-shown');
+      resizeMap();
+    }
   }
 
   //////////////////////////////////////////////////////////////////////
@@ -1082,40 +1481,44 @@ window.addEventListener('DOMContentLoaded', function() {
   //
   //////////////////////////////////////////////////////////////////////
 
-  var isCanvasSupported = ('getContext' in $('#scaleIndicator')),
-      animId = 0;
+  const isCanvasSupported = ('getContext' in $('#scaleIndicator'));
+  let animId = 0;
   function updateScaleIndicator() {
     if (!isCanvasSupported) return;
 
     cancelAnimationFrame(animId);
-    animId = requestAnimationFrame(function() {
-      var scale = map.scale,
-          canvas = $('#scaleIndicator'),
-          ctx = canvas.getContext('2d'),
-          w = parseFloat(canvas.width),
-          h = parseFloat(canvas.height),
-          style = map.style,
-          color = ['atlas', 'print', 'draft', 'fasa'].indexOf(style) !== -1 ? 'black' : 'white';
+    animId = requestAnimationFrame(() => {
+      const scale = map.scale,
+            canvas = $('#scaleIndicator'),
+            ctx = canvas.getContext('2d'),
+            w = parseFloat(canvas.width),
+            h = parseFloat(canvas.height),
+            style = map.style,
+            color = ['atlas', 'print', 'draft', 'fasa', 'mongoose'].includes(style) ? 'black' : 'white';
 
       ctx.clearRect(0, 0, w, h);
 
-      var dist = w / scale;
-      var factor = Math.pow(10, Math.floor(Math.log(dist) / Math.LN10));
+      let dist = w / scale;
+      const factor = Math.pow(10, Math.floor(Math.log(dist) / Math.LN10));
       dist = Math.floor(dist / factor) * factor;
       dist = parseFloat(dist.toPrecision(1));
-      var label = dist + ' pc';
-      var bar = dist * scale;
+      const label = `${dist} pc`;
+      const bar = dist * scale;
 
+      ctx.save();
+      ctx.lineCap = 'square';
+      ctx.lineWidth = 2;
       ctx.strokeStyle = color;
       ctx.beginPath();
-      ctx.moveTo(w - bar + 1, h / 2);
-      ctx.lineTo(w - bar + 1, h * 3 / 4);
-      ctx.lineTo(w - 1, h * 3 / 4);
-      ctx.lineTo(w - 1, h / 2);
+      ctx.moveTo(Math.round(w - bar + 1), Math.round(h / 2));
+      ctx.lineTo(Math.round(w - bar + 1), Math.round(h * 3 / 4));
+      ctx.lineTo(Math.round(w - 1), Math.round(h * 3 / 4));
+      ctx.lineTo(Math.round(w - 1), Math.round(h / 2));
       ctx.stroke();
+      ctx.restore();
 
       ctx.fillStyle = color;
-      ctx.font = '10px Univers, Arial, sans-serif';
+      ctx.font = '12px Univers, Arial, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(label, w - bar / 2, h / 2);
@@ -1130,42 +1533,70 @@ window.addEventListener('DOMContentLoaded', function() {
   //
   //////////////////////////////////////////////////////////////////////
 
-  var worldToMainMap;
-  function showMain(worldX, worldY) {
+  let worldToMainMap;
+  async function showMain(worldX, worldY) {
     if (!$('#cbMains').checked) return;
-    findMain(worldX, worldY)
-      .then(function(main) { map.SetMain(main); });
+    const main = await findMain(worldX, worldY);
+    map.SetMain(main);
   }
-  function findMain(worldX, worldY) {
+  async function findMain(worldX, worldY) {
     function sectorHexToSig(sx, sy, hx, hy) {
-      return sx + '/' + sy + '/' + ('0000' + ( hx * 100 + hy )).slice(-4);
+      return `${sx}/${sy}/` + ('0000' + ( hx * 100 + hy )).slice(-4);
     }
     function sigToSectorHex(sig) {
-      var parts = sig.split('/');
+      const parts = sig.split('/');
       return {sx: parts[0]|0, sy: parts[1]|0, hx: (parts[2] / 100) | 0, hy: parts[2] % 100};
     }
 
-    function getMainsMapping() {
+    async function getMainsMapping() {
       if (worldToMainMap)
-        return Promise.resolve(worldToMainMap);
+        return worldToMainMap;
+      const r = await fetch(Traveller.MapService.makeURL('/res/mains.json'));
+      if (!r.ok) throw new Error(r.statusText);
+
       worldToMainMap = new Map();
-      return fetch('./res/mains.json')
-        .then(function(r) { return r.json(); })
-        .then(function(mains) {
-          mains.forEach(function(main) {
-            main.forEach(function(sig, index) {
-              worldToMainMap.set(sig, main);
-              main[index] = sigToSectorHex(sig);
-            });
-          });
-          return worldToMainMap;
+      const mains = await r.json();
+      mains.forEach(main => {
+        main.forEach((sig, index) => {
+          worldToMainMap.set(sig, main);
+          main[index] = sigToSectorHex(sig);
         });
+      });
+      return worldToMainMap;
     }
-    return getMainsMapping().then(function(map) {
-      var sectorHex = Traveller.Astrometrics.worldToSectorHex(worldX, worldY);
-      var sig = sectorHexToSig(sectorHex.sx, sectorHex.sy, sectorHex.hx, sectorHex.hy);
-      return map.get(sig);
+
+    const map = await getMainsMapping();
+    const sectorHex = Traveller.Astrometrics.worldToSectorHex(worldX, worldY);
+    const sig = sectorHexToSig(sectorHex.sx, sectorHex.sy, sectorHex.hx, sectorHex.hy);
+    return map.get(sig);
+  }
+
+  //////////////////////////////////////////////////////////////////////
+  //
+  // Utilities
+  //
+  //////////////////////////////////////////////////////////////////////
+
+  function showLightboxImage(url) {
+    const lightbox = document.body.appendChild(document.createElement('div'));
+    const inner = lightbox.appendChild(document.createElement('div'));
+    lightbox.className = 'lightbox';
+    lightbox.tabIndex = 0;
+    inner.style.backgroundImage = `url("${url}")`;
+
+    lightbox.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      lightbox.remove();
     });
+    lightbox.addEventListener('keydown', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      ignoreNextKeyUp = true;
+      lightbox.remove();
+    });
+
+    lightbox.focus();
   }
 
   //////////////////////////////////////////////////////////////////////
@@ -1174,17 +1605,97 @@ window.addEventListener('DOMContentLoaded', function() {
   //
   //////////////////////////////////////////////////////////////////////
 
-  if (!isIframe) // == for IE
+  if (!isIframe)
     mapElement.focus();
 
   $('#searchBox').disabled = false;
 
-  // Init all of the "social" UI asynchronously.
-  setTimeout(window.initSharingLinks, 1000);
-  $('#shareBtn').addEventListener('click', function() {
-    window.initSharingLinks();
+  // iOS WebKit workarounds
+  if (navigator.userAgent.match(/iPad|iPhone/)) (() => {
+    // Prevent inadvertant touch-scroll.
+    $$('button, input').forEach(element => {
+      element.addEventListener('touchmove', event => { event.preventDefault();  }, {passive:false});
+    });
+    // Prevent inadvertant touch-zoom.
+    document.addEventListener('touchmove', event => {
+      if (event.scale !== 1) { event.preventDefault(); }
+    }, false);
+    // Prevent double-tap-to-zoom.
+    let last_time = Date.now();
+    document.addEventListener('touchend', event => {
+      const now = Date.now();
+      if (now - last_time <= 500) {
+        event.preventDefault();
+        event.target.click();
+      }
+      last_time = now;
+    }, false);
+  })();
+
+  // Show cookie accept prompt, if necessary.
+  if (!isIframe) {
+    setTimeout(() => {
+      const cookies = Util.parseCookies();
+      const cookies_key = 'tm_accept';
+      if (!(cookies.tm_accept || localStorage.getItem(cookies_key))) {
+        document.body.classList.add('cookies-not-accepted');
+        $('#cookies button').addEventListener('click', event => {
+          document.body.classList.remove('cookies-not-accepted');
+          document.cookie = 'tm_accept=1;SameSite=Strict;Secure';
+          localStorage.setItem(cookies_key, 1);
+        });
+      }
+    }, 1000);
+  }
+
+  // Show promo, if not dismissed.
+  if (!isIframe && $('#promo-closebtn')) {
+    setTimeout(() => {
+      const promo_key = 'tm_promo5';
+      if (!localStorage.getItem(promo_key)) {
+        document.body.classList.add('show-promo');
+        $('#promo-closebtn').addEventListener('click', event => {
+          document.body.classList.remove('show-promo');
+          localStorage.setItem(promo_key, 1);
+        });
+        $$('#promo-hover a').forEach(a => a.addEventListener('click', event => {
+          document.body.classList.remove('show-promo');
+          localStorage.setItem(promo_key, 1);
+        }));
+      }
+    }, 1000);
+  }
+
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js');
+  }
+
+  // Process URL params that drive the map
+
+  ['q', 'qn'].forEach(key => {
+    if (key in urlParams) {
+      $('#searchBox').value = urlParams[key];
+      search(urlParams[key], {navigate: key === 'qn'});
+    }
   });
 
+  if ('qr' in urlParams) {
+    try {
+      const results = JSON.parse(urlParams['qr']);
+      const term = urlParams['search'] || '';
+      $('#searchBox').value = term;
+      search(term, {navigate: true, results});
+    } catch (ex) {
+      console.warn('Error parsing "qr" data: ', ex);
+    }
+  }
+
+  if ('attract' in urlParams) {
+    // TODO: Disable UI, or make any UI interaction cancel
+    doAttract();
+  }
+
   // After all async events from the map have fired...
-  setTimeout(function() { enableCredits = true; }, 0);
-});
+  setTimeout(() => { enableContext = true; }, 0);
+
+})(self);

@@ -1,4 +1,6 @@
-﻿using Maps.Serialization;
+﻿#nullable enable
+using Maps.Serialization;
+using Maps.Utilities;
 using System.IO;
 using System.Web;
 
@@ -6,23 +8,19 @@ namespace Maps.API
 {
     internal class MSECHandler : DataHandlerBase
     {
-        protected override string ServiceName { get { return "msec"; } }
+        protected override DataResponder GetResponder(HttpContext context) => new Responder(context);
 
-        protected override DataResponder GetResponder(HttpContext context)
-        {
-            return new Responder(context);
-        }
         private class Responder : DataResponder
         {
             public Responder(HttpContext context) : base(context) { }
-            public override string DefaultContentType { get { return System.Net.Mime.MediaTypeNames.Text.Plain; } }
-            public override void Process()
+            public override string DefaultContentType => ContentTypes.Text.Plain;
+
+            public override void Process(ResourceManager resourceManager)
             {
                 // NOTE: This (re)initializes a static data structure used for 
                 // resolving names into sector locations, so needs to be run
                 // before any other objects (e.g. Worlds) are loaded.
-                ResourceManager resourceManager = new ResourceManager(Context.Server);
-                SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
+                SectorMap.Milieu map = SectorMap.ForMilieu(GetStringOption("milieu"));
                 Sector sector;
 
                 if (HasOption("sx") && HasOption("sy"))
@@ -30,17 +28,13 @@ namespace Maps.API
                     int sx = GetIntOption("sx", 0);
                     int sy = GetIntOption("sy", 0);
 
-                    sector = map.FromLocation(sx, sy);
-
-                    if (sector == null)
+                    sector = map.FromLocation(sx, sy) ??
                         throw new HttpError(404, "Not Found", $"The sector at {sx},{sy} was not found.");
                 }
                 else if (HasOption("sector"))
                 {
-                    string sectorName = GetStringOption("sector");
-                    sector = map.FromName(sectorName);
-
-                    if (sector == null)
+                    string sectorName = GetStringOption("sector")!;
+                    sector = map.FromName(sectorName) ??
                         throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
                 }
                 else
@@ -55,7 +49,7 @@ namespace Maps.API
                     data = writer.ToString();
                 }
 
-                SendResult(Context, data);
+                SendResult(data);
             }
         }
     }

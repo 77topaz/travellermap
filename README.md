@@ -4,8 +4,7 @@ The Traveller Map - Source Code
 This is the source code behind https://travellermap.com - an online resource for fans
 of the Traveller role playing game.
 
-The Traveller game in all forms is owned by Far Future Enterprises.
-Copyright (C) 1977-2017 Far Future Enterprises.
+The Traveller game in all forms is owned by Mongoose Publishing. Copyright 1977 - 2024 Mongoose Publishing. [Fair Use Policy](https://cdn.shopify.com/s/files/1/0609/6139/0839/files/Traveller_Fair_Use_Policy_2024.pdf?v=1725357857)
 
 See LICENSE.md for software licensing details.
 
@@ -20,13 +19,11 @@ Useful Links
 * Blog: https://travellermap.blogspot.com
 * GitHub repo: https://github.com/inexorabletash/travellermap
 * Issue tracker: https://github.com/inexorabletash/travellermap/issues
-* Wish List: https://trello.com/b/y61wmEKJ/travellermap-com-wish-list
 
 
 Dependencies
 ------------
 
-* The site is built using ASP.NET and requires IIS7 and .NET 4.5.
-* Bitmap and PDF rendering is done using PDFsharp http://www.pdfsharp.net/ (MIT License)
-* The map page uses Add To Homescreen by Matteo Spinelli http://cubiq.org/add-to-home-screen (MIT Licence)
-* HTML templating uses Handlebars.js http://handlebarsjs.com/ (MIT License)
+* The site is built using ASP.NET and requires IIS8 and .NET 4.6.1.
+* PDF rendering is done using PDFsharp http://www.pdfsharp.net/ (MIT License)
+* HTML templating uses Handlebars.js https://handlebarsjs.com/ (MIT License)

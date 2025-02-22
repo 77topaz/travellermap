@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿#nullable enable
 using System.IO;
-using System.Xml.Serialization;
 
 namespace Maps.Serialization
 {
@@ -10,24 +7,21 @@ namespace Maps.Serialization
     {
         public abstract void Serialize(TextWriter writer, Sector sector);
 
-        public static SectorMetadataSerializer ForType(string mediaType)
-        {
-            switch (mediaType)
+        public static SectorMetadataSerializer ForType(string mediaType) =>
+            mediaType switch
             {
-                case "MSEC": return new MSECSerializer();
-                case "XML":
-                default: return new XMLSectorMetadataSerializer();
-            }
-        }
+                "MSEC" => new MSECSerializer(),
+                "XML" => new XmlSectorMetadataSerializer(),
+                _ => new XmlSectorMetadataSerializer(),
+            };
     }
 
     // NOTE: This is unused; see SectorMetaDataHandler
-    internal class XMLSectorMetadataSerializer : SectorMetadataSerializer
+    internal class XmlSectorMetadataSerializer : SectorMetadataSerializer
     {
         public override void Serialize(TextWriter writer, Sector sector)
         {
-            XmlSerializer xs = new XmlSerializer(typeof(Sector));
-            xs.Serialize(writer, sector);
+            throw new System.ApplicationException("Not Implemented");
         }
     }
 

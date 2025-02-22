@@ -1,10 +1,9 @@
 ﻿<!DOCTYPE html>
 <title>Sector Metadata - Traveller Map</title>
 <meta charset="utf-8">
-<link rel="shortcut icon" href="../favicon.ico">
+<link rel="shortcut icon" href="../favicon.svg">
 <link rel="stylesheet" href="../site.css">
 <meta name="viewport" content="initial-scale=1, width=device-width">
-<script src="https://cdn.rawgit.com/inexorabletash/polyfill/v0.1.29/polyfill.min.js"></script>
 
 <style>
 pre.example { font-family: 'Share Tech Mono', monospace; }
@@ -23,15 +22,15 @@ pre.example { font-family: 'Share Tech Mono', monospace; }
       such as borders and routes provide extra flavor to the visual
       presentation of sectors, and important details such as subsector names
       also need to be captured. Together, this extra detail is described by
-      <a target="_blank" href="http://dotclue.org/t20/">J. Greely</a>
+      <a target=_blank rel=noopener href="http://dotclue.org/t20/">J. Greely</a>
       as <dfn>sector metadata</dfn>.
     </p>
 
     <p>
       Greely defines a plain text metadata file format by example:
-      <a target="_blank" href="http://dotclue.org/t20/SpinwardMarches.txt">SpinwardMarches.txt</a>
+      <a target=_blank rel=noopener href="http://dotclue.org/t20/SpinwardMarches.txt">SpinwardMarches.txt</a>
       This format is used by his
-      <a target="_blank" href="http://dotclue.org/t20/">sec2pdf</a> tool
+      <a target=_blank rel=noopener href="http://dotclue.org/t20/">sec2pdf</a> tool
       for generating PDF
       sector maps. The Traveller Map site supports MSEC files in both the
       "MSEC" format in the <a href="../make/poster">Poster Maker</a> and
@@ -79,6 +78,7 @@ pre.example { font-family: 'Share Tech Mono', monospace; }
   <!-- less common -->
   <Allegiances>...</Allegiances>
   <Labels>...</Labels>
+  <Regions>...</Regions>
   <Stylesheet>...</Stylesheet>
 </Sector>
 </script>
@@ -239,6 +239,17 @@ pre.example { font-family: 'Share Tech Mono', monospace; }
       <dt>LabelPosition</dt>
       <dd>(optional) Label hex position, as <code><var>XXYY</var></code></dd>
 
+      <dt>LabelOffsetX</dt>
+      <dd>
+          (optional) a positive or negative floating point value,
+          adjusts the horizontal alignment of the label (default is <code>0</code>)
+      </dd>
+      <dt>LabelOffsetY</dt>
+      <dd>
+          (optional) a positive or negative floating point value,
+          adjusts the vertical alignment of the label (default is <code>0</code>)
+      </dd>
+
       <dt>Label</dt>
       <dd>(optional) Label text to use, regardless of a matching allegiance</dd>
 
@@ -333,17 +344,35 @@ pre.example { font-family: 'Share Tech Mono', monospace; }
     </p>
     <h4>Attributes</h4>
     <dl class="params">
-      <dt>Hex</dt>
-      <dd>label position as <code><var>XXYY</var></code></dd>
+        <dt>Hex</dt>
+        <dd>label position as <code><var>XXYY</var></code></dd>
 
-      <dt>Color</dt>
-      <dd>an HTML color name or code <code>#<var>RRGGBB</var></code></dd>
+        <dt>Color</dt>
+        <dd>an HTML color name or code <code>#<var>RRGGBB</var></code></dd>
 
-      <dt>Size</dt>
-      <dd>(optional) one of <code>small</code> or <code>large</code></dd>
+        <dt>Size</dt>
+        <dd>(optional) one of <code>small</code> or <code>large</code></dd>
 
-      <dt>Allegiance</dt>
-      <dd>Currently unused</dd>
+        <dt>Wrap</dt>
+        <dd>
+            (optional) Must be <code>false</code> (default) or <code>true</code>
+            (to wrap the label text onto multiple lines)
+        </dd>
+
+        <dt>OffsetX</dt>
+        <dd>
+            (optional) a positive or negative floating point value,
+            adjusts the horizontal alignment of the label (default is <code>0</code>)
+        </dd>
+
+        <dt>OffsetY</dt>
+        <dd>
+            (optional) a positive or negative floating point value,
+            adjusts the vertical alignment of the label (default is <code>0</code>)
+        </dd>
+
+        <dt>Allegiance</dt>
+        <dd>Currently unused</dd>
     </dl>
     <h4>Examples</h4>
 <script class="example" type="text/xml">
@@ -353,6 +382,31 @@ pre.example { font-family: 'Share Tech Mono', monospace; }
 </Labels>
 </script>
   </section>
+
+  <section id="regions">
+    <h2>Regions</h2>
+    <p>
+      Regions are just like borders but they are filled rather than
+      outlined. They can be used to represent regions of space other
+      than political boundaries, such as nebulas.
+    </p>
+    <p>
+      The format and options are exactly the same as borders, although
+      <code>Allegiance</code> is not typically used and <code>Style</code>
+      is ignored.
+    </p>
+
+    <h4>Examples</h4>
+    <script class="example" type="text/xml">
+<Regions>
+  <Region Label="Nebula" Color="Purple">
+    2720 2819 2920 2921 2922 2921 2820 2720
+  </Region>
+  ...
+</Regions>
+    </script>
+  </section>
+
 
   <section id="stylesheet">
     <h2>Stylesheet</h2>
@@ -369,7 +423,7 @@ pre.example { font-family: 'Share Tech Mono', monospace; }
 
     <h4>Selectors (the bit up front)</h4>
     <ul>
-      <li>Starts with a <var>type</var>: <code>border</code> or <code>route</code></li>
+      <li>Starts with a <var>type</var>: <code>border</code>, <code>region</code> or <code>route</code></li>
       <li>The type is optionally followed by a period (<code>.</code>), then
         a <var>class</var>. For <cite>Traveller</cite> this is the allegiance or
         (for routes) type.
@@ -395,6 +449,7 @@ pre.example { font-family: 'Share Tech Mono', monospace; }
     </dl>
     <h4>Application Rules</h4>
     <ul>
+      <li><code>color</code> applies to matching <code>Region</code> elements</li>
       <li><code>color</code> and <code>style</code> apply to matching <code>Border</code> elements</li>
       <li><code>color</code>, <code>style</code> and <code>width</code> apply to matching <code>Route</code> elements</li>
       <li>You can use C-style <code>/* comments */</code> anywhere you can put spaces.</li>
@@ -410,6 +465,7 @@ pre.example { font-family: 'Share Tech Mono', monospace; }
 
   route.Trade { color: gray; style: dashed; width: 0.5 }
   border.Hazard { color: #c02020; style: dotted }
+  region.Nebula { color: purple }
 </Stylesheet>
 </script>
     <p>
@@ -431,7 +487,7 @@ pre.example { font-family: 'Share Tech Mono', monospace; }
       polity or domain, they don't precisely match the needs for metadata elements
       such as routes or borders which implicitly span multiple worlds.
       <code>HvFd</code>, <code>SoCf</code>, and <code>ZhCo</code> are T5SS allegiance
-      codes for those homogenous polities (Hiver Federation, Solomani Confederation and
+      codes for those homogenous polities (Hive Federation, Solomani Confederation and
       Zhodani Consulate, respectively). <code>JuPr</code> is the generic code
       for Julian Protectorate worlds although some may be aligned to a member
       state of the protectorate. Imperial worlds are marked with the allegiance
@@ -448,18 +504,16 @@ pre.example { font-family: 'Share Tech Mono', monospace; }
 
 <div class="editorial">
   <p>
-    The <em class="product">Traveller</em> game in all forms is owned by Far
-    Future Enterprises. Copyright &copy; 1977 &ndash; 2017 Far Future
-    Enterprises.
-    <a href="http://farfuture.net/FFEFairUsePolicy2008.pdf">Fair Use Policy</a>
+    The <em class="product">Traveller</em> game in all forms is owned by Mongoose Publishing. Copyright 1977 &ndash; 2024 Mongoose Publishing.
+    <a href="https://cdn.shopify.com/s/files/1/0609/6139/0839/files/Traveller_Fair_Use_Policy_2024.pdf?v=1725357857">Fair Use Policy</a>
   </p>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
   [].slice.call(document.querySelectorAll('script.example'))
-    .forEach(function(script) {
-      var pre = document.createElement('pre');
+    .forEach(script => {
+      let pre = document.createElement('pre');
       pre.className = 'code';
       // TODO: Syntax Highlighting
       pre.appendChild(document.createTextNode(script.innerHTML.trim()));

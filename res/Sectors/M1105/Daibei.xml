@@ -16,7 +16,6 @@
 
     ]]>
   </Credits>
-  <DataFile Source="Traveller 5 Second Survey" Milieu="M1105" Type="TabDelimited">Daibei.tab</DataFile>
   <Subsectors>
     <Subsector Index="A">Edge</Subsector>
     <Subsector Index="B">Alun</Subsector>
@@ -128,7 +127,7 @@
 
     <!-- Routes off the edge of the sector -->
     <Route Start="0114" End="0012" />
-    <Route Start="0114" End="0014" />
+    <Route Start="0114" End="3115" EndOffsetX="-1" />
     <Route Start="0127" End="0026" />
     <Route Start="0333" End="0032" />
     <Route Start="2239" End="2102" EndOffsetY="1" />

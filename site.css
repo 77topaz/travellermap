@@ -36,7 +36,7 @@ h1 {
 @media only screen and (min-width: 768px)  {
   h1 {
     padding-left: 45px;
-    background-image: url(https://s3.amazonaws.com/travellermap/images/ImperialStarburst.png);
+    background-image: url(https://travellermap.s3.amazonaws.com/images/ImperialStarburst.svg);
     background-size: 40px 40px;
     background-repeat: no-repeat;
   }
@@ -76,10 +76,12 @@ p, li, dd {
 ol.steps > li {
   margin-top: 4px;
   margin-bottom: 4px;
-  font-size: 120%;
+  font-size: 12pt;
 }
-ol.steps > li select {
-  font-size: 120%;
+ol.steps > li select,
+ol.steps > li button,
+ol.steps > li input[type=submit] {
+  font-size: 12pt;
 }
 
 div.aside, p.aside {
@@ -99,6 +101,13 @@ a.reference {
   font-size: smaller;
   text-decoration: none;
 }
+a.stealth {
+  text-decoration: none;
+}
+a:hover.stealth {
+  text-decoration: underline;
+}
+
 
 dfn, cite {
   font-style: italic;
@@ -117,7 +126,13 @@ td.number, th.number {
   padding-right: 10pt;
 }
 
+.copyright {
+  font-family: 'Arial';
+}
 
+.highlight {
+  color: #ff2000;
+}
 
 /* Code Samples and Parameter Definitions */
 
@@ -180,9 +195,9 @@ textarea {
     white-space: pre-wrap;
     width: auto;
   }
-  ul { -webkit-padding-start: 20px; }
+  ul { padding-inline-start: 20px; }
   dl.params { margin-left: 0; }
-  dl.params > dd { -webkit-margin-start: 10px; }
+  dl.params > dd { margin-inline-start: 10px; }
   p.code { white-space: normal; }
 }
 

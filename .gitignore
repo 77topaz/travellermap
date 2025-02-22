@@ -4,6 +4,7 @@
 .svn/
 
 # Visual Studio cruft
+.vs
 *.csproj.user
 *.suo
 App_Data/
@@ -12,9 +13,8 @@ bin/
 
 # Web site stuff
 web.config
-robots.txt
-sitemap.xml
 logs/
+.well-known
 
 # Publishing stuff
 *.bat
@@ -29,3 +29,9 @@ res/Sectors/Legacy/
 # Windows cruft
 Thumbs.db
 /.vs/config/applicationhost.config
+/.vs/ProjectSettings.json
+/.vs/slnx.sqlite
+
+# Mac cruft
+.DS_Store
+

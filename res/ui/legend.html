@@ -1,18 +1,40 @@
 <!DOCTYPE html>
 <title>Legend Images</title>
-<base href="http://travellermap.com">
+<style>
+  body {
+    background-color: #404040;
+  }
+</style>
 <script>
-['poster', 'atlas', 'print', 'candy', 'draft', 'fasa'].forEach(function(style) {
-  var div = document.createElement('div');
-  document.documentElement.appendChild(div);
-  var img;
+const SERVICE_BASE = (l => {
+  if (l.hostname === 'localhost' && l.pathname.indexOf('~') !== -1)
+    return 'https://travellermap.com';
+  return '';
+})(window.location);
 
-  img = document.createElement('img');
-  img.src = '/api/jumpmap?jump=1&sector=Legend&hex=1003&options=884&border=0&style='+style;
-  div.appendChild(img);
+['poster', 'atlas', 'print', 'candy', 'draft', 'fasa', 'terminal', 'mongoose'].forEach(style => {
+  const div = document.documentElement.appendChild(document.createElement('div'));
+  const script = document.documentElement.appendChild(document.createElement('pre'));
 
-  img = document.createElement('img');
-  img.src = '/api/jumpmap?jump=1&sector=Legend&hex=1006&options=884&border=0&style='+style;
-  div.appendChild(img);
+  const contentType = 'image/svg+xml', extension = 'svg';
+
+  ['1003', '1006'].forEach(hex => {
+    const url = `${SERVICE_BASE}/api/jumpmap?accept=${contentType}&jump=1&sector=Legend&hex=${hex}&options=884&border=0&style=${style}`;
+
+    const img = Object.assign(document.createElement('img'), {
+      src: url
+    });
+
+    const a = Object.assign(document.createElement('a'), {
+      href: img.src,
+      download: '', // Ignored for cross-origin requests, alas: `Legend_${hex}_${style}.${extension}`
+    });
+
+    a.appendChild(img);
+    div.appendChild(a);
+
+    script.append(`curl -o Legend_${hex}_${style}.svg '${url}'\n`);
+
+  });
 });
 </script>

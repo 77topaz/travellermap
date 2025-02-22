@@ -1,10 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <title>API - Traveller Map</title>
 <meta charset="utf-8">
-<link rel="shortcut icon" href="../favicon.ico">
-<link rel="stylesheet" href="../site.css?update=2016-10-02">
+<link rel="shortcut icon" href="../favicon.svg">
+<link rel="stylesheet" href="../site.css?update=2022-09-10T10:37:44">
 <meta name="viewport" content="initial-scale=1, width=device-width">
-<script src="https://cdn.rawgit.com/inexorabletash/polyfill/v0.1.29/polyfill.min.js"></script>
 
 <style>
 h3 { text-decoration: underline; }
@@ -69,8 +68,8 @@ table#features, #features th, #features td { border: solid 1px black; }
       schemes. For example, to render a poster-style map of Deneb you
       can use either of these URLs:
     </p>
-    <p class="code">http://travellermap.com/api/poster?sector=Deneb</p>
-    <p class="code">http://travellermap.com/data/Deneb/image</p>
+    <p class="code">https://travellermap.com/api/poster?sector=Deneb</p>
+    <p class="code">https://travellermap.com/data/Deneb/image</p>
     <p>
       The first URL is structured based on the function that is being
       performed, and takes parameters (defining data to operate on)
@@ -95,53 +94,53 @@ table#features, #features th, #features td { border: solid 1px black; }
     <ul>
       <li>Universe
         <ul>
-          <li><a href="#universe">http://travellermap.com/data</a> &ndash; list of all sectors
+          <li><a href="#universe">https://travellermap.com/data</a> &ndash; list of all sectors
         </ul>
       </li>
       <li>Sector
         <ul>
-          <li><a href="#sec">http://travellermap.com/data/<var>sector</var></a> &ndash; T5 Second Survey format
-          <li><a href="#sec">http://travellermap.com/data/<var>sector</var>/tab</a> &ndash; T5 Tab Delimited format
-          <li><a href="#sec">http://travellermap.com/data/<var>sector</var>/sec</a> &ndash; legacy SEC format
-          <li><a href="#metadata">http://travellermap.com/data/<var>sector</var>/metadata</a> &ndash; XML metadata
-          <li><a href="#msec">http://travellermap.com/data/<var>sector</var>/msec</a> &ndash; MSEC metadata
-          <li><a href="#poster">http://travellermap.com/data/<var>sector</var>/image</a> &ndash; map
-          <li><a href="#coordinates">http://travellermap.com/data/<var>sector</var>/coordinates</a> &ndash; coordinates
-          <li><a href="#credits">http://travellermap.com/data/<var>sector</var>/credits</a> &ndash; credits
-          <li>http://travellermap.com/data/<var>sector</var>/booklet &ndash; alias for <a target="_blank" href="../booklet">booklet</a>
+          <li><a href="#sec">https://travellermap.com/data/<var>sector</var></a> &ndash; T5 Second Survey format
+          <li><a href="#sec">https://travellermap.com/data/<var>sector</var>/tab</a> &ndash; T5 Tab Delimited format
+          <li><a href="#sec">https://travellermap.com/data/<var>sector</var>/sec</a> &ndash; legacy SEC format
+          <li><a href="#metadata">https://travellermap.com/data/<var>sector</var>/metadata</a> &ndash; XML metadata
+          <li><a href="#msec">https://travellermap.com/data/<var>sector</var>/msec</a> &ndash; MSEC metadata
+          <li><a href="#poster">https://travellermap.com/data/<var>sector</var>/image</a> &ndash; map
+          <li><a href="#coordinates">https://travellermap.com/data/<var>sector</var>/coordinates</a> &ndash; coordinates
+          <li><a href="#credits">https://travellermap.com/data/<var>sector</var>/credits</a> &ndash; credits
+          <li>https://travellermap.com/data/<var>sector</var>/booklet &ndash; alias for <a target=_blank rel=noopener href="../make/booklet">booklet</a>
           <li><var>sector</var> is name e.g. <code>Spinward Marches</code> or T5SS abbreviation e.g. <code>spin</code>
 
         </ul>
       </li>
       <li>Quadrant
         <ul>
-          <li><a href="#poster">http://travellermap.com/data/<var>sector</var>/<var>quadrant</var></a> &ndash; T5 Second Survey format
-          <li><a href="#poster">http://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/tab</a> &ndash; T5 Tab Delimited format
-          <li><a href="#poster">http://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/sec</a> &ndash; legacy SEC format
-          <li><a href="#poster">http://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/image</a> &ndash; map
+          <li><a href="#poster">https://travellermap.com/data/<var>sector</var>/<var>quadrant</var></a> &ndash; T5 Second Survey format
+          <li><a href="#poster">https://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/tab</a> &ndash; T5 Tab Delimited format
+          <li><a href="#poster">https://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/sec</a> &ndash; legacy SEC format
+          <li><a href="#poster">https://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/image</a> &ndash; map
           <li><var>sector</var> is name e.g. <code>Spinward Marches</code> or T5SS abbreviation e.g. <code>spin</code>
           <li><var>quadrant</var> is one of: <code>Alpha</code>, <code>Beta</code>, <code>Gamma</code> or <code>Delta</code>
         </ul>
       </li>
       <li>Subsector
         <ul>
-          <li><a href="#poster">http://travellermap.com/data/<var>sector</var>/<var>subsector</var></a> &ndash; T5 Second Survey format
-          <li><a href="#poster">http://travellermap.com/data/<var>sector</var>/<var>subsector</var>/tab</a> &ndash; T5 Tab Delimited format
-          <li><a href="#poster">http://travellermap.com/data/<var>sector</var>/<var>subsector</var>/sec</a> &ndash; legacy SEC format
-          <li><a href="#poster">http://travellermap.com/data/<var>sector</var>/<var>subsector</var>/image</a> &ndash; map
+          <li><a href="#poster">https://travellermap.com/data/<var>sector</var>/<var>subsector</var></a> &ndash; T5 Second Survey format
+          <li><a href="#poster">https://travellermap.com/data/<var>sector</var>/<var>subsector</var>/tab</a> &ndash; T5 Tab Delimited format
+          <li><a href="#poster">https://travellermap.com/data/<var>sector</var>/<var>subsector</var>/sec</a> &ndash; legacy SEC format
+          <li><a href="#poster">https://travellermap.com/data/<var>sector</var>/<var>subsector</var>/image</a> &ndash; map
           <li><var>sector</var> is name e.g. <code>Spinward Marches</code> or T5SS abbreviation e.g. <code>spin</code>
           <li><var>subsector</var> is index <code>A</code> &ndash; <code>P</code> or name e.g. <code>Regina</code>
         </ul>
       </li>
       <li>World
         <ul>
-          <li><a href="#jumpworlds">http://travellermap.com/data/<var>sector</var>/<var>hex</var></a> &ndash; world data
-          <li><a href="#coordinates">http://travellermap.com/data/<var>sector</var>/<var>hex</var>/coordinates</a> &ndash; coordinates
-          <li><a href="#credits">http://travellermap.com/data/<var>sector</var>/<var>hex</var>/credits</a> &ndash; credits
+          <li><a href="#jumpworlds">https://travellermap.com/data/<var>sector</var>/<var>hex</var></a> &ndash; world data
+          <li><a href="#coordinates">https://travellermap.com/data/<var>sector</var>/<var>hex</var>/coordinates</a> &ndash; coordinates
+          <li><a href="#credits">https://travellermap.com/data/<var>sector</var>/<var>hex</var>/credits</a> &ndash; credits
 
-          <li><a href="#jumpworlds">http://travellermap.com/data/<var>sector</var>/<var>hex</var>/jump/<var>jump</var></a> &ndash; worlds in jump range
-          <li><a href="#jumpmap">http://travellermap.com/data/<var>sector</var>/<var>hex</var>/jump/<var>jump</var>/image</a> &ndash; jump map
-          <li>http://travellermap.com/data/<var>sector</var>/<var>hex</var>/sheet &ndash; alias for <a target="_blank" href="../world">world</a>
+          <li><a href="#jumpworlds">https://travellermap.com/data/<var>sector</var>/<var>hex</var>/jump/<var>jump</var></a> &ndash; worlds in jump range
+          <li><a href="#jumpmap">https://travellermap.com/data/<var>sector</var>/<var>hex</var>/jump/<var>jump</var>/image</a> &ndash; jump map
+          <li>https://travellermap.com/data/<var>sector</var>/<var>hex</var>/sheet &ndash; alias for <a target=_blank rel=noopener href="../print/world">world</a>
           <li><var>sector</var> is name e.g. <code>Spinward Marches</code> or T5SS abbreviation e.g. <code>spin</code>
           <li><var>hex</var> is <code>XXYY</code> e.g. <code>1910</code>
           <li><var>jump</var> is a number in the range <code>0</code> &mdash; <code>12</code>
@@ -209,7 +208,7 @@ table#features, #features th, #features td { border: solid 1px black; }
           <td>Background colors for bordered regions.
     </table>
     <p>
-      Computed options value: <code>options=<span id="computed_options"></span></code> (<a target="_blank" id="test_options" href="#">try it</a>)
+      Computed options value: <code>options=<span id="computed_options"></span></code> (<a target=_blank rel=noopener id="test_options" href="#">try it</a>)
     </p>
     <p class="aside">
       Some flag values (not listed in the above table) have been
@@ -224,11 +223,11 @@ table#features, #features th, #features td { border: solid 1px black; }
       always set/cleared together by one checkbox.
     </p>
     <script>
-      (function () {
+      (() => {
         function updateOptions() {
-          var options = 0;
-          var checkboxes = [].slice.call(document.querySelectorAll("#options_table input[type='checkbox']"));
-          checkboxes.forEach(function (cb) {
+          let options = 0;
+          const checkboxes = [].slice.call(document.querySelectorAll("#options_table input[type='checkbox']"));
+          checkboxes.forEach(cb => {
             if (cb.checked) {
               options += Number(cb.value);
             }
@@ -236,12 +235,12 @@ table#features, #features th, #features td { border: solid 1px black; }
           document.querySelector("#computed_options").innerHTML = String(options);
           document.querySelector("#test_options").href = "/data/spin/C/image?options=" + encodeURIComponent(String(options));
         }
-        var checkboxes = [].slice.call(document.querySelectorAll("#options_table input[type='checkbox']"));
-        checkboxes.forEach(function (cb) {
+        const checkboxes = [].slice.call(document.querySelectorAll("#options_table input[type='checkbox']"));
+        checkboxes.forEach(cb => {
           cb.onchange = updateOptions;
         });
         updateOptions();
-      }());
+      })();
     </script>
 
     <p>
@@ -280,41 +279,73 @@ table#features, #features th, #features td { border: solid 1px black; }
 
     <p>Style values include:</p>
     <dl class="params">
-    <dt style="clear: both;"><img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-poster.png" alt="poster example">
-      style=poster</dt>
-    <dd>A color-on-black style that matches the "Spinward Marches" poster included with the
-    <a href="http://travellerbibliography.org/gdw-ct/Deluxe.html" target="_blank">Deluxe Traveller</a>
-    boxed set and the
-    <a href="http://travellerbibliography.org/gdw-ct/knownspace.html" target="_blank">Imperium Map</a> poster.
-    This is the default.</dd>
+      <dt style="clear: both;">
+        <img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-poster.png" alt="poster example">
+        style=poster
+      </dt>
+      <dd>
+        A color-on-black style that matches the "Spinward Marches" poster included with the
+        <a href="https://en.wikipedia.org/wiki/Traveller_Deluxe_Edition" target=_blank rel=noopener>Deluxe Traveller</a>
+        boxed set and the
+        <a href="https://rpggeek.com/rpgitem/48783/imperium" target=_blank rel=noopener>Imperium Map</a> poster.
+        This is the default.
+      </dd>
 
-    <dt style="clear: both;"><img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-print.png" alt="print example">
-      style=print</dt>
-    <dd>A color-on-white style best suited for color printing.
-    </dd>
+      <dt style="clear: both;">
+        <img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-print.png" alt="print example">
+        style=print
+      </dt>
+      <dd>
+        A color-on-white style best suited for color printing.
+      </dd>
 
-    <dt style="clear: both;"><img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-atlas.png" alt="atlas example">
-      style=atlas</dt>
-    <dd>A grayscale black-on-white style that matches the visual style of the
-    <a href="http://travellerbibliography.org/gdw-ct/Atlas.html">Atlas of the Imperium</a> and early supplements, best for black-and-white printing.
-    </dd>
+      <dt style="clear: both;">
+        <img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-atlas.png" alt="atlas example">
+        style=atlas
+      </dt>
+      <dd>
+        A grayscale black-on-white style that matches the visual style of the
+        <a href="https://wiki.travellerrpg.com/Atlas_of_the_Imperium">Atlas of the Imperium</a> and early supplements, best for black-and-white printing.
+      </dd>
 
-    <dt style="clear: both;"><img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-candy.png"  alt="candy example">
-      style=candy</dt>
-    <dd>A style designed by Wayne Peters that evokes interactive map displays from contemporary movies. Does not
-    show world base or allegiance information, but does illustrate world size and hydrographics.</dd>
+      <dt style="clear: both;">
+        <img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-candy.png" alt="candy example">
+        style=candy
+      </dt>
+      <dd>
+        A style designed by Wayne Peters that evokes interactive map displays from contemporary movies. Does not
+        show world base or allegiance information, but does illustrate world size and hydrographics.
+      </dd>
 
-    <dt style="clear: both;"><img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-draft.png"  alt="draft example">
-      style=draft</dt>
-    <dd>A style reminiscent of GDW's original hand drawn draft of the Spinward Marches sector map.
-      (A high resolution scan of the original is available on
-      <a target="_blank"
-         title="GDW's original hand drawn draft of the Spinward Marches sector map"
-         href="http://rpg.drivethrustuff.com/product/64319/The-Spinward-Marches">DriveThruRPG</a>.)</dd>
+      <dt style="clear: both;">
+        <img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-draft.png" alt="draft example">
+        style=draft
+      </dt>
+      <dd>
+        A style reminiscent of GDW's original hand drawn draft of the Spinward Marches sector map.
+        (A high resolution scan of the original is available on
+        <a target=_blank rel=noopener
+           title="GDW's original hand drawn draft of the Spinward Marches sector map"
+           href="https://rpg.drivethrustuff.com/product/64319/The-Spinward-Marches">DriveThruRPG</a>.)
+      </dd>
 
-    <dt style="clear: both;"><img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-fasa.png"  alt="FASA example">
-      style=fasa</dt>
-    <dd>A style reminiscent of FASA's classic supplements and magazines.</dd>
+      <dt style="clear: both;">
+        <img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-fasa.png" alt="FASA example">
+        style=fasa
+      </dt>
+      <dd>A style reminiscent of FASA's classic supplements and magazines.</dd>
+
+      <dt style="clear: both;">
+        <img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-terminal.png" alt="Terminal example">
+        style=terminal
+      </dt>
+      <dd>A style reminiscent of retro-futuristic computer terminals.</dd>
+
+      <dt style="clear: both;">
+        <img style="float: right; width: 48px; height: 48px; margin: 10px;" src="../res/ui/style-mongoose.png" alt="Mongoose example">
+        style=mongoose
+      </dt>
+      <dd>A style similar to <a target=_blank rel=noopener href="https://www.mongoosepublishing.com/collections/traveller-rpgs">Mongoose Publishing's</a> house style for Traveller maps.</dd>
     </dl>
 
     <h4>Page and API</h4>
@@ -324,8 +355,17 @@ table#features, #features th, #features td { border: solid 1px black; }
 
     <dl class="params">
       <dt>dimunofficial=1</dt>
-      <dd>At scales where worlds are shown (dotmap or more), sectors with unofficial
-        data will be dimmed</dd>
+      <dd>
+        At scales where worlds are shown (dotmap or more), sectors with unofficial
+        data will be dimmed
+      </dd>
+
+      <dt>review=1</dt>
+      <dd>
+        At scales where worlds are shown (dotmap or more), sectors will be
+        tinted based on T5SS review status: official - red; in review - orange;
+        unreviewed - yellow; preserve - green; apocryphal - magenta.
+      </dd>
 
       <dt>routes=0</dt>
       <dd>Routes are not rendered (macro-scale or micro-scale)</dd>
@@ -339,57 +379,88 @@ table#features, #features th, #features td { border: solid 1px black; }
       <dt>allhexes=1</dt>
       <dd>All hexes are numbered. The default is just to number hexes with worlds.</dd>
 
+      <dt>nogrid=1</dt>
+      <dd>Hex grid is not rendered. The default is to show a hex grid when zoomed in.</dd>
+
       <dt>po=1</dt>
-      <dd><b>Population overlay:</b> a yellow circle with
+      <dd>
+        <b>Population overlay:</b> a yellow circle with
         area proportional to the
         <a href="./secondsurvey#pbg">population</a>
-        of each world is overlayed.</dd>
+        of each world is overlayed.
+      </dd>
 
       <dt>im=1</dt>
-      <dd><b>Importance overlay:</b> a green circle representing
+      <dd>
+        <b>Importance overlay:</b> a green circle representing
         the world's <a href="./secondsurvey#ix">Importance</a> is
-        overlayed.</dd>
+        overlayed.
+      </dd>
 
       <dt>dw=1</dt>
-      <dd><b>Droyne World overlay:</b> worlds with Droyne
+      <dd>
+        <b>Droyne World overlay:</b> worlds with Droyne
         populations are annotated with &#x2605;, and worlds with
-        Chirper populations are annotated with &#x2606;.</dd>
+        Chirper populations are annotated with &#x2606;.
+      </dd>
 
       <dt>an=1</dt>
-      <dd><b>Ancient World overlay:</b> worlds with
-        known Ancient sites are annotated with &#x2600;.</dd>
+      <dd>
+        <b>Ancient World overlay:</b> worlds with
+        known Ancient sites are annotated with &#x2600;.
+      </dd>
 
       <dt>mh=1</dt>
-      <dd><b>Minor Race Homeworld overlay:</b> homeworlds
-        of minor races are annotated with &#x273B;.</dd>
+      <dd>
+        <b>Minor Race Homeworld overlay:</b> homeworlds
+        of minor races are annotated with &#x273B;.
+      </dd>
 
       <dt>stellar=1</dt>
-      <dd>A representation of the system's stars is shown
-        instead of rendering world details. Sizes are not to scale.</dd>
+      <dd>
+        A representation of the system's stars is shown
+        instead of rendering world details. Sizes are not to scale.
+      </dd>
 
-      <dt>hw=<var>S</var><var>N</var></dt>
-      <dt>hw=<var>S</var><var>N</var>+</dt>
-      <dt>hw=<var>S</var><var>N</var>-</dt>
-      <dt>hw=<var>S</var><var>M</var>-<var>M</var></dt>
-      <dd><b>Highlight Worlds overlay:</b>
-        Worlds with a matching characteristic are highlighted. The argument
-        starts with a field name, one of
-        <code>St</code>
-        <code>S</code>
-        <code>A</code>
-        <code>H</code>
-        <code>P</code>
-        <code>G</code>
-        <code>L</code>
-        <code>T</code>
-        <code>Ix</code>.
-        This is followed by either
-        a value (field is <var>N</var>),
-        a value and - (field is <var>N</var> or lower),
-        a value and + (field is <var>N</var> or higher),
-        or a value and - and another value (field in the range <var>N</var> to <var>M</var>).
-        Note that values are decimal integers (possibly negative), not eHex.
-        (<a target="_blank" href="../?hw=Ix4+">example</a>)
+      <dt>hw=<var>F</var><var>N</var></dt>
+      <dt>hw=<var>F</var><var>N</var>+</dt>
+      <dt>hw=<var>F</var><var>N</var>-</dt>
+      <dt>hw=<var>F</var><var>N</var>-<var>M</var></dt>
+      <dt>hw=<var>F</var>:<var>ABC</var></dt>
+      <dd>
+        <b>Highlight Worlds overlay:</b>
+        Worlds with a matching characteristic are highlighted.
+
+        <p>The argument starts with a field name, one of
+        <code>St</code> (starport)
+        <code>S</code> (size)
+        <code>A</code> (atmosphere)
+        <code>H</code> (hydrographics)
+        <code>P</code> (population)
+        <code>G</code> (government)
+        <code>L</code> (law level)
+        <code>T</code> (tech level)
+        <code>Ix</code> (importance)
+        <code>B</code> (bases).
+
+        <p>
+        This is followed by either:
+          <ul>
+            <li>
+              a value (field is <var>N</var>) (e.g. <code>hw=T5</code> - TL 5)
+            <li>
+              a value and <code>-</code> (field is <var>N</var> or lower; e.g. <code>hw=S5-</code> - Size 5 or lower)
+            <li>
+              a value and <code>+</code> (field is <var>N</var> or higher; e.g. <code>hw=T12+</code> - TL 12 or higher)
+            <li>
+              a value and <code>-</code> and another value (field in the range <var>N</var> to <var>M</var>; e.g. <code>hw=A4-9</code> - Atmosphere 4-9)
+            <li>
+              <code>:</code> and a list of characters (starport and bases only; e.g. <code>hw=B:ND</code> - naval base or depot)
+          </ul>
+
+        <p>
+        Note that for numerical patterns the values are decimal integers (possibly negative) or eHex.
+        (<a target=_blank rel=noopener href="../?hw=Ix4%2B">example</a>).
       </dd>
 
     </dl>
@@ -402,28 +473,18 @@ table#features, #features th, #features td { border: solid 1px black; }
     <dl class="params">
       <dt>dpr=<var>number</var></dt>
       <dd>The image is rendered for the specified
-        <a target="_blank" href="http://www.quirksmode.org/blog/archives/2012/07/more_about_devi.html">device pixel ratio</a>.
+        <a target=_blank rel=noopener href="http://www.quirksmode.org/blog/archives/2012/07/more_about_devi.html">device pixel ratio</a>.
         For example, specifying <code>dpr=2</code> would produce an image at double the
         resolution, providing better quality for iOS "retina" and other high-density
         displays.
 
       <dt>datauri=1</dt>
       <dd>The image is returned as a base64-encoded
-        <a target="_blank" href="http://en.wikipedia.org/wiki/Data_URI_scheme">Data URI</a>
+        <a target=_blank rel=noopener href="https://en.wikipedia.org/wiki/Data_URI_scheme">Data URI</a>
         rather than as binary data. This is useful when requesting images via POST via XHR
         to insert into HTML.</dd>
     </dl>
 
-    <h4>IFRAME Only</h4>
-
-    <p>These options are available only when the <a href="#iframe">IFRAME</a> API is used.</p>
-
-    <dl class="params">
-      <dt>forceui=1</dt>
-      <dd>The page UI (search box, options buttons, etc) is shown. The default is to hide
-      the UI when the map is embedded in another page. Note that not all options may make
-      sense.</dd>
-    </dl>
   </section>
   </section>
 
@@ -449,10 +510,19 @@ table#features, #features th, #features td { border: solid 1px black; }
 
       <dt>q
       <dd>perform a search for the given query
-        (<a target="_blank" href="../?q=regina">example</a>)
+        (<a target=_blank rel=noopener href="../?q=regina">example</a>)
       <dt>qn
       <dd>perform a search for the given query, and navigate to the first result
-        (<a target="_blank" href="../?qn=regina">example</a>)
+        (<a target=_blank rel=noopener href="../?qn=regina">example</a>)
+
+      <dt>p=<var>x</var>!<var>y</var>!<var>s</var>
+      <dd>compact coordinates; <var>x</var> and <var>y</var> are  <a href="#system_map">Map-space coordinates</a>;
+        <var>s</var> is 1 + log<sub>2</sub> <var>scale</var>.
+
+      <dt>hideui=1</dt>
+      <dd>The page UI (search box, options buttons, etc) is not shown.
+      Note that not all options may make sense.</dd>
+
     </dl>
 
 
@@ -465,25 +535,25 @@ table#features, #features th, #features td { border: solid 1px black; }
       <dt>marker_sector
       <dt>marker_hex
         <dd>Show a marker at <a href="#system_location">named coordinates</a>
-          (<a target="_blank" href="../?marker_sector=spin&amp;marker_hex=1910&amp;marker_url=res/markers/beowulf.png">example</a>)
+          (<a target=_blank rel=noopener href="../?marker_sector=spin&amp;marker_hex=1910&amp;marker_url=res/markers/beowulf.png">example</a>)
 
       <dt>marker_sx
       <dt>marker_sy
       <dt>marker_hx
       <dt>marker_hy
         <dd>Show a marker at <a href="#system_sectorhex">Sector/Hex coordinates</a>
-            (<a target="_blank" href="../?marker_sx=-4&amp;marker_sy=-1&amp;marker_hx=19&amp;marker_hy=10&amp;marker_url=res/markers/beowulf.png">example</a>)
+            (<a target=_blank rel=noopener href="../?marker_sx=-4&amp;marker_sy=-1&amp;marker_hx=19&amp;marker_hy=10&amp;marker_url=res/markers/beowulf.png">example</a>)
 
       <dt>marker_x
       <dt>marker_y
         <dd>Show a marker at <a href="#system_map">Map-space coordinates</a>
-          (<a target="_blank" href="../?marker_x=-95.914&amp;marker_y=70.5&amp;marker_url=res/markers/beowulf.png">example</a>)
+          (<a target=_blank rel=noopener href="../?marker_x=-95.914&amp;marker_y=70.5&amp;marker_url=res/markers/beowulf.png">example</a>)
 
       <dt>marker=<var>URL</var>
         <dd>Shortcut: The marker will be placed at the initial map location if the
           <code>sector</code> and <code>hex</code> options or a <code>/go/</code>
           link are used.
-          (<a target="_blank" href="../?sector=VLAN&amp;hex=1717&amp;marker=res/markers/submerchant.png">example</a>)
+          (<a target=_blank rel=noopener href="../?sector=VLAN&amp;hex=1717&amp;marker=res/markers/submerchant.png">example</a>)
     </dl>
 
 
@@ -530,25 +600,25 @@ table#features, #features th, #features td { border: solid 1px black; }
       <dt>yah_sector
       <dt>yah_hex
         <dd>Show a marker at <a href="#system_location">named coordinates</a>
-            (<a target="_blank" href="../?yah_sector=spin&amp;yah_hex=1910">example</a>)
+            (<a target=_blank rel=noopener href="../?yah_sector=spin&amp;yah_hex=1910">example</a>)
 
       <dt>yah_sx
       <dt>yah_sy
       <dt>yah_hx
       <dt>yah_hy
         <dd>Show a marker at <a href="#system_sectorhex">Sector/Hex coordinates</a>
-            (<a target="_blank" href="../?yah_sx=-4&amp;yah_sy=-1&amp;yah_hx=19&amp;yah_hy=10">example</a>)
+            (<a target=_blank rel=noopener href="../?yah_sx=-4&amp;yah_sy=-1&amp;yah_hx=19&amp;yah_hy=10">example</a>)
 
       <dt>yah_x
       <dt>yah_y
         <dd>Show a marker at <a href="#system_map">Map-space coordinates</a>
-            (<a target="_blank" href="../?yah_x=-95.914&amp;yah_y=70.5">example</a>)
+            (<a target=_blank rel=noopener href="../?yah_x=-95.914&amp;yah_y=70.5">example</a>)
 
       <dt>yah
         <dd>Shortcut: The marker will be placed at the initial map location if the
           <code>sector</code> and <code>hex</code> options or a <code>/go/</code>
           link are used.
-          (<a target="_blank" href="../?sector=VLAN&amp;hex=1717&amp;yah">example</a>)
+          (<a target=_blank rel=noopener href="../?sector=VLAN&amp;hex=1717&amp;yah">example</a>)
     </dl>
 
     <h4>Overlays:</h4>
@@ -574,26 +644,49 @@ table#features, #features th, #features td { border: solid 1px black; }
       <dt>oy
       <dt>ow
       <dt>oh
-        <dd><a href="#system_map">Map-space coordinates</a> for the left, top, width, and height of an overlay or highlight rectangle to place over the map. To specify additional overlay rectangles, include
-            <code>ox1</code>/<code>oy1</code>/<code>ow1</code>/<code>oh1</code>
-            for the first additional overlay
-            <code>ox2</code>/<code>oy2</code>/<code>ow2</code>/<code>oh2</code>
-            for the second additional overlay, and so on. For example, here's the
-            <a target="_blank" href="../?ox=-111.95&amp;oy=80&amp;ow=194.2&amp;oh=200">Atlas of the Imperium coverage area</a>.
+      <dt>os
+        <dd>
+          Add a rectangule overlay to the map. Specify the left, top, width, and height with <code>ox</code>, <code>oy</code>, <code>ow</code>, <code>oh</code> in <a href="#system_map">map-space coordinates</a>, and optionally a fill style with <code>os</code>.
+
+          To specify additional overlay rectangles, include
+            <code>ox1</code>/<code>oy1</code>/<code>ow1</code>/<code>oh1</code>/<code>os1</code> for the first additional overlay
+            <code>ox2</code>/<code>oy2</code>/<code>ow2</code>/<code>oh2</code>/<code>os2</code> for the second additional overlay, and so on.
+
+          The fill style can be named CSS colors (e.g. <code>green</code>) or explicit RGB properly escaped (e.g. <code>%2300ff00</code>).
+
+            For example, here's the <a target=_blank rel=noopener href="../?ox=-111.95&amp;oy=80&amp;ow=194.2&amp;oh=200">Atlas of the Imperium coverage area</a>.
+
+      <dt>or
+        <dd>A compact form of the above <code>ox</code>, <code>oy</code>, etc.
+          Each rectangle is specified with x/y/width/height separated
+          by <code>!</code> and additional rectangles separated
+          by <code>~</code>. For
+          example, <code>or=-111.95!80!194.2!200!red~0!0!10!20</code>
 
       <dt>ocx
       <dt>ocy
       <dt>ocr
-        <dd><a href="#system_map">Map-space coordinates</a> for the center and radius overlay or highlight circle to place over the map.To specify additional overlay circles, include
-            <code>ocx1</code>/<code>ocy1</code>/<code>ocr1</code>
-            for the first additional overlay
-            <code>ocx2</code>/<code>ocy2</code>/<code>ocr2</code>
-            for the second additional overlay, and so on. For example, here's
-            <a target="_blank" href="../?ocx=-67.983&amp;ocy=55.5&amp;ocr=89">
-              the region of space where the bright star Deneb is visible during daylight hours</a>.
+      <dt>ocs
+        <dd>
+
+          Add a circle overlay to the map. Specify the center with <code>ocx</code> and <code>ocy</code> in <a href="#system_map">map-space coordinates</a>, the radius with <code>ocr</code>, and optionally a fill style with <code>ocs</code>.
+
+          To specify additional overlay circles, include
+          <code>ocx1</code>/<code>ocy1</code>/<code>ocr1</code>/<code>ocs1</code> for the first additional overlay
+          <code>ocx2</code>/<code>ocy2</code>/<code>ocr2</code>/<code>ocs2</code> for the second additional overlay, and so on.
+
+          The fill style can be named CSS colors (e.g. <code>green</code>) or explicit RGB properly escaped (e.g. <code>%2300ff00</code>).
+
+          For example, here's <a target=_blank rel=noopener href="../?ocx=-67.983&amp;ocy=55.5&amp;ocr=89"> the region of space where the bright star Deneb is visible during daylight hours</a>.
+
+      <dt>oc
+        <dd>A compact form of the above <code>ocx</code>, <code>ocy</code>, <code>ocr</code>, <code>ocs</code>.
+          Each circle is specified with x/y/radius and optional fill style separated
+          by <code>!</code> and additional circle separated
+          by <code>~</code>. For
+          example, <code>oc=0!0!50~50!50!25!red~-50!50!25</code>
+
     </dl>
-
-
 
   </section>
 
@@ -601,10 +694,10 @@ table#features, #features th, #features td { border: solid 1px black; }
     <h3>Go Links &ndash; short URLs for specifying a location on the map</h3>
     <h4>API URLs:</h4>
     <p class="code">
-        http://travellermap.com/go/<var>sector</var>
+        https://travellermap.com/go/<var>sector</var>
     </p>
     <p class="code">
-        http://travellermap.com/go/<var>sector</var>/<var>hex</var>
+        https://travellermap.com/go/<var>sector</var>/<var>hex</var>
     </p>
     <p>These URLs navigate the map page, and can be used instead of the longer
       <code>?sector=<var>sector</var>&amp;hex=<var>hex</var></code> syntax.
@@ -630,6 +723,16 @@ table#features, #features th, #features td { border: solid 1px black; }
         width: 200px; height: 200px; border: solid 1px black;
     </p>
 
+  <section id="query">
+    <h4>Query Parameters:</h4>
+    <dl class="params">
+      <dt>forceui=1</dt>
+      <dd>The page UI (search box, options buttons, etc) is shown. The default is to hide
+      the UI when the map is embedded in another page.</dd>
+    </dl>
+  </section>
+
+
    <h4>Notes:</h4>
     <ul>
         <li>You use the same URL as for the main page. The site detects that it's running in an iframe and automatically hides the UI.
@@ -649,13 +752,13 @@ table#features, #features th, #features td { border: solid 1px black; }
     </pre>
 
     <iframe src="https://travellermap.com/go/spin/1910?style=print"
-            style="border: ridge 10px gray;">
+            style="border: ridge 10px gray;" loading=lazy>
     </iframe>
 
    <h4>Beta Features:</h4>
     <ul>
         <li>When the user clicks or double-clicks on the map, a
-          <a target="_blank" href="https://html.spec.whatwg.org/multipage/comms.html#the-messageevent-interfaces">message event</a>
+          <a target=_blank rel=noopener href="https://html.spec.whatwg.org/multipage/comms.html#the-messageevent-interfaces">message event</a>
           will posted to the containing page. The <code>data</code> element of the
           event will have the form:
           <pre class="code">
@@ -677,26 +780,26 @@ table#features, #features th, #features td { border: solid 1px black; }
     <h3>Coordinates &ndash; sector lookup and coordinate conversion</h3>
     <h4>API URLs:</h4>
     <p class="code">
-        http://travellermap.com/api/coordinates?sector=<var>sector</var>
+        https://travellermap.com/api/coordinates?sector=<var>sector</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/coordinates?sector=<var>sector</var>&amp;hex=<var>hex</var>
+        https://travellermap.com/api/coordinates?sector=<var>sector</var>&amp;hex=<var>hex</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/coordinates?sector=<var>sector</var>&amp;subsector=<var>subsector</var>
+        https://travellermap.com/api/coordinates?sector=<var>sector</var>&amp;subsector=<var>subsector</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/coordinates?sx=<var>sx</var>&amp;sy=<var>sy</var>
+        https://travellermap.com/api/coordinates?sx=<var>sx</var>&amp;sy=<var>sy</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/coordinates?sx=<var>sx</var>&amp;sy=<var>sy</var>&amp;hx=<var>hx</var>&amp;hy=<var>hy</var>
+        https://travellermap.com/api/coordinates?sx=<var>sx</var>&amp;sy=<var>sy</var>&amp;hx=<var>hx</var>&amp;hy=<var>hy</var>
     </p>
     <h4>Data URLs:</h4>
     <p class="code">
-        http://travellermap.com/data/<var>sector</var>/coordinates
+        https://travellermap.com/data/<var>sector</var>/coordinates
     </p>
     <p class="code">
-        http://travellermap.com/data/<var>sector</var>/<var>hex</var>/coordinates
+        https://travellermap.com/data/<var>sector</var>/<var>hex</var>/coordinates
     </p>
 
     <h4>Parameters:</h4>
@@ -726,7 +829,7 @@ table#features, #features th, #features td { border: solid 1px black; }
         <li>If <code>sector</code> and <code>subsector</code> are specified,
           the coordinates of the center of of the subsector are returned.
         <li>
-          The default output format is <a href="http://json.org/">JSON</a>. To retrieve results in XML form, specify
+          The default output format is <a href="https://json.org/">JSON</a>. To retrieve results in XML form, specify
           the HTTP header <code>Accept: text/xml</code> or include <code>accept=text/xml</code>
           in the query string.
 
@@ -742,26 +845,26 @@ table#features, #features th, #features td { border: solid 1px black; }
     <h3>Credits &ndash; get world data for a given location</h3>
     <h4>API URLs:</h4>
     <p class="code">
-        http://travellermap.com/api/credits?sector=<var>sector</var>
+        https://travellermap.com/api/credits?sector=<var>sector</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/credits?sector=<var>sector</var>&amp;hex=<var>hex</var>
+        https://travellermap.com/api/credits?sector=<var>sector</var>&amp;hex=<var>hex</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/credits?sx=<var>sx</var>&amp;sy=<var>sy</var>
+        https://travellermap.com/api/credits?sx=<var>sx</var>&amp;sy=<var>sy</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/credits?sx=<var>sx</var>&amp;sy=<var>sy</var>&amp;hx=<var>hx</var>&amp;hy=<var>hy</var>
+        https://travellermap.com/api/credits?sx=<var>sx</var>&amp;sy=<var>sy</var>&amp;hx=<var>hx</var>&amp;hy=<var>hy</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/credits?x=<var>x</var>&amp;y=<var>y</var>
+        https://travellermap.com/api/credits?x=<var>x</var>&amp;y=<var>y</var>
     </p>
     <h4>Data URLs:</h4>
     <p class="code">
-        http://travellermap.com/data/<var>sector</var>/credits
+        https://travellermap.com/data/<var>sector</var>/credits
     </p>
     <p class="code">
-        http://travellermap.com/data/<var>sector</var>/<var>hex</var>/credits
+        https://travellermap.com/data/<var>sector</var>/<var>hex</var>/credits
     </p>
 
     <h4>Parameters:</h4>
@@ -780,7 +883,7 @@ table#features, #features th, #features td { border: solid 1px black; }
     <h4>Notes:</h4>
     <ul>
       <li>
-        The default output format is <a href="http://json.org/">JSON</a>. To retrieve results in XML form, specify
+        The default output format is <a href="https://json.org/">JSON</a>. To retrieve results in XML form, specify
         the HTTP header <code>Accept: text/xml</code> or include <code>accept=text/xml</code>
         in the query string.
     </ul>
@@ -799,23 +902,23 @@ table#features, #features th, #features td { border: solid 1px black; }
         <dd>The sector to output is specified some combination of the following URL parameters:
 
           <h4>API URLs:</h4>
-          <p class="code">http://travellermap.com/api/sec?sector=<var>sector</var></p>
-          <p class="code">http://travellermap.com/api/sec?sector=<var>sector</var>&amp;hex=<var>hex</var></p>
-          <p class="code">http://travellermap.com/api/sec?sector=<var>sector</var>&amp;subsector=<var>subsector</var></p>
-          <p class="code">http://travellermap.com/api/sec?sector=<var>sector</var>&amp;quadrant=<var>quadrant</var></p>
-          <p class="code">http://travellermap.com/api/sec?sx=<var>sx</var>&amp;sy=<var>sy</var></p>
+          <p class="code">https://travellermap.com/api/sec?sector=<var>sector</var></p>
+          <p class="code">https://travellermap.com/api/sec?sector=<var>sector</var>&amp;hex=<var>hex</var></p>
+          <p class="code">https://travellermap.com/api/sec?sector=<var>sector</var>&amp;subsector=<var>subsector</var></p>
+          <p class="code">https://travellermap.com/api/sec?sector=<var>sector</var>&amp;quadrant=<var>quadrant</var></p>
+          <p class="code">https://travellermap.com/api/sec?sx=<var>sx</var>&amp;sy=<var>sy</var></p>
           <h4>Data URLs:</h4>
-          <p class="code">http://travellermap.com/data/<var>sector</var></p>
-          <p class="code">http://travellermap.com/data/<var>sector</var>/sec</p>
-          <p class="code">http://travellermap.com/data/<var>sector</var>/tab</p>
+          <p class="code">https://travellermap.com/data/<var>sector</var></p>
+          <p class="code">https://travellermap.com/data/<var>sector</var>/sec</p>
+          <p class="code">https://travellermap.com/data/<var>sector</var>/tab</p>
 
-          <p class="code">http://travellermap.com/data/<var>sector</var>/<var>subsector</var></p>
-          <p class="code">http://travellermap.com/data/<var>sector</var>/<var>subsector</var>/sec</p>
-          <p class="code">http://travellermap.com/data/<var>sector</var>/<var>subsector</var>/tab</p>
+          <p class="code">https://travellermap.com/data/<var>sector</var>/<var>subsector</var></p>
+          <p class="code">https://travellermap.com/data/<var>sector</var>/<var>subsector</var>/sec</p>
+          <p class="code">https://travellermap.com/data/<var>sector</var>/<var>subsector</var>/tab</p>
 
-          <p class="code">http://travellermap.com/data/<var>sector</var>/<var>quadrant</var></p>
-          <p class="code">http://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/sec</p>
-          <p class="code">http://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/tab</p>
+          <p class="code">https://travellermap.com/data/<var>sector</var>/<var>quadrant</var></p>
+          <p class="code">https://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/sec</p>
+          <p class="code">https://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/tab</p>
 
           <h4>Parameters:</h4>
           <dl class="params">
@@ -898,10 +1001,10 @@ table#features, #features th, #features td { border: solid 1px black; }
       <dd>
         The sector to output is specified some combination of the following URL parameters:
         <h4>API URLs:</h4>
-        <p class="code">http://travellermap.com/api/metadata?sector=<var>sector</var></p>
-        <p class="code">http://travellermap.com/api/metadata?sx=<var>sx</var>&amp;sy=<var>sy</var></p>
+        <p class="code">https://travellermap.com/api/metadata?sector=<var>sector</var></p>
+        <p class="code">https://travellermap.com/api/metadata?sx=<var>sx</var>&amp;sy=<var>sy</var></p>
         <h4>Data URLs:</h4>
-        <p class="code">http://travellermap.com/data/<var>sector</var>/metadata</p>
+        <p class="code">https://travellermap.com/data/<var>sector</var>/metadata</p>
 
         <h4>Parameters:</h4>
         <dl class="params">
@@ -934,7 +1037,7 @@ table#features, #features th, #features td { border: solid 1px black; }
     <h4>Notes:</h4>
     <ul>
         <li>
-          The default output format is <a href="http://json.org/">JSON</a>. To retrieve results in XML form, specify
+          The default output format is <a href="https://json.org/">JSON</a>. To retrieve results in XML form, specify
           the HTTP header <code>Accept: text/xml</code> or include <code>accept=text/xml</code>
           in the query string.
 
@@ -952,10 +1055,10 @@ table#features, #features th, #features td { border: solid 1px black; }
   <section id="msec">
     <h3>MSEC &ndash; generate sec2pdf metadata for a sector</h3>
     <h4>API URLs:</h4>
-    <p class="code">http://travellermap.com/api/msec?sector=<var>sector</var></p>
-    <p class="code">http://travellermap.com/api/msec?sx=<var>sx</var>&amp;sy=<var>sy</var></p>
+    <p class="code">https://travellermap.com/api/msec?sector=<var>sector</var></p>
+    <p class="code">https://travellermap.com/api/msec?sx=<var>sx</var>&amp;sy=<var>sy</var></p>
     <h4>Data URLs:</h4>
-    <p class="code">http://travellermap.com/data/<var>sector</var>/msec</p>
+    <p class="code">https://travellermap.com/data/<var>sector</var>/msec</p>
 
     <h4>Parameters:</h4>
     <dl class="params">
@@ -981,20 +1084,20 @@ table#features, #features th, #features td { border: solid 1px black; }
     <h3>Jump Worlds &ndash; return a list of worlds within N parsecs</h3>
     <h4>API URLs:</h4>
     <p class="code">
-        http://travellermap.com/api/jumpworlds?x=<var>x</var>&amp;y=<var>y</var>
+        https://travellermap.com/api/jumpworlds?x=<var>x</var>&amp;y=<var>y</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/jumpworlds?sx=<var>sx</var>&amp;sy=<var>sy</var>&amp;hx=<var>hx</var>&amp;hy=<var>hy</var>
+        https://travellermap.com/api/jumpworlds?sx=<var>sx</var>&amp;sy=<var>sy</var>&amp;hx=<var>hx</var>&amp;hy=<var>hy</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/jumpworlds?sector=<var>sector</var>&amp;hex=hex
+        https://travellermap.com/api/jumpworlds?sector=<var>sector</var>&amp;hex=hex
     </p>
     <h4>Data URLs:</h4>
     <p class="code">
-      http://travellermap.com/data/<var>sector</var>/<var>hex</var>
+      https://travellermap.com/data/<var>sector</var>/<var>hex</var>
     </p>
     <p class="code">
-      http://travellermap.com/data/<var>sector</var>/<var>hex</var>/jump/<var>jump</var>
+      https://travellermap.com/data/<var>sector</var>/<var>hex</var>/jump/<var>jump</var>
     </p>
 
     <h4>Parameters:</h4>
@@ -1034,7 +1137,7 @@ table#features, #features th, #features td { border: solid 1px black; }
         </ul>
 
       <li>
-        The default output format is <a href="http://json.org/">JSON</a>. To retrieve results in XML form, specify
+        The default output format is <a href="https://json.org/">JSON</a>. To retrieve results in XML form, specify
         the HTTP header <code>Accept: text/xml</code> or include <code>accept=text/xml</code>
         in the query string.
     </ul>
@@ -1049,7 +1152,7 @@ table#features, #features th, #features td { border: solid 1px black; }
     <h3>Search &ndash; find worlds or regions by name or attributes</h3>
     <h4>API URLs:</h4>
     <p class="code">
-        http://travellermap.com/api/search?q=<var>QUERY</var>
+        https://travellermap.com/api/search?q=<var>QUERY</var>
     </p>
 
     <h4>Parameters:</h4>
@@ -1060,41 +1163,57 @@ table#features, #features th, #features td { border: solid 1px black; }
 
     <h4>Notes:</h4>
     <ul>
-        <li>Perform a search of names for matching sectors, subsectors, worlds
-          and labeled regions.
+        <li>
+            Perform a search of names for matching sectors, subsectors, worlds
+            and labeled regions.
         <li>All searches are <em>case-insensitive</em>.
         <li>By default, only matches at the start of names or after spaces are returned. So "<code>sol</code>" will match "Sol", "Solomani Rim" and "Nowa Sol" but not "Marsol"
-        <li>Wildcards:
-          <code>*</code> and <code>%</code> can be used as a "zero or more of any character";
-          <code>?</code> and <code>_</code> can be used as "exactly one character".
-          For example, "<code>r*a</code>" will match Regina.
+        <li>
+            Wildcards:
+            <code>*</code> and <code>%</code> can be used as a "zero or more of any character";
+            <code>?</code> and <code>_</code> can be used as "exactly one character".
+            <code>[]</code> can be used for character ranges, e.g. <code>[0-5]</code> or <code>[m-z]</code> or <code>[89ABC]</code>.
+            For example, "<code>r*a</code>" will match Regina.
         <li>Specifying a wildcard within a word turns <em>off</em> the "start of word" match. So "<code>re*in</code>" will <em>not</em> match "Regina" (but "<code>re*in*</code>" will).
         <li>Add <code>exact:</code> as a prefix to force an exact match, e.g. "<code>exact:sol</code>" will not match "Solomani Rim"
         <li>Add <code>like:</code> as a prefix to do a "sounds like" match, e.g. "<code>like:tear</code>" will find "Terra"
-        <li>Specify more than one (space-delimited) word in the query to refine the search. Words are joined as logical <em>and</em> clauses. So "<code>so ri</code>" will match "Solomani Rim"
-          (This combines strangely with wildcards; "<code>sol* ri*</code>" tries to find something matching both "<code>sol*</code>" <em>and</em> "<code>ri*</code>" so nothing will be found!)
-        <li>Add <code>uwp:</code> as a prefix to a word to search the relevant fields. Examples:
+        <li>
+            Specify more than one (space-delimited) word in the query to refine the search. Words are joined as logical <em>and</em> clauses. So "<code>so ri</code>" will match "Solomani Rim"
+            (This combines strangely with wildcards; "<code>sol* ri*</code>" tries to find something matching both "<code>sol*</code>" <em>and</em> "<code>ri*</code>" so nothing will be found!)
+        <li>
+            Add <code>uwp:</code> as a prefix to a word to search the relevant fields. Examples:
             <dl class="params">
-                <dt>uwp:a* <dd>find worlds with class A starports
-                <dt>t* uwp:*f <dd>find worlds with names beginning with T that are tech level F
+                <dt>uwp:a*
+                <dd>find worlds with class A starports
+                <dt>t* uwp:*f
+                <dd>find worlds with names beginning with T that are tech level F
             </dl>
-        <li>Similarly, you can use <code>pbg:</code>, <code>zone:</code>, <code>alleg:</code>
-          to match on PBG, Zone or Allegiance respectively.
-        <li>Use <code>remark:</code> to require a specific remark, e.g. <code>remark:Hi</code>
-          to limit the results to high-population worlds.
-        <li>Add <code>in:</code> as a prefix to a word to search the sector name. Examples:
+        <li>
+            Similarly, you can use <code>pbg:</code>, <code>zone:</code>, <code>alleg:</code>
+            to match on PBG, Zone or Allegiance respectively.
+        <li>
+            Use <code>stellar:</code> to match a specific star type, e.g. <code>stellar:"M? I*"</code>
+            for red giants, or <code>stellar:"M? I*" stellar:D</code> for red giants with white
+            dwarf companions.
+        <li>
+            Use <code>remark:</code> to require a specific remark, e.g. <code>remark:Hi</code>
+            to limit the results to high-population worlds.
+        <li>
+            Add <code>in:</code> as a prefix to a word to search the sector name. Examples:
             <dl class="params">
-                <dt>t* in:spin <dd>find worlds in Spinward Marches sector begining with T
-                <dt>uwp:*-f in:"Solomani Rim"<dd>find worlds with tech level F in the Solomani Rim
+                <dt>t* in:spin
+                <dd>find worlds in Spinward Marches sector begining with T
+                <dt>uwp:*-f in:"Solomani Rim"
+                <dd>find worlds with tech level F in the Solomani Rim
             </dl>
 
         <li>Specifying a search query of XXXXXXX-X (seven alphanumeric characters, hyphen, one alphanumeric character) is a shortcut for <code>uwp:</code>
         <li>Searches are performed on individual items (sectors, subsectors, worlds). You cannot at present do scoped search such as "TL-F worlds in the Solomani Rim"
         <li>Results may appear for items with multiple names (e.g. Solomani Rim sector is known as <em>Kushuggi</em> in Vilani); this is a correct result, although the alternate name is not apparent on the site.
         <li>
-          The default output format is <a href="http://json.org/">JSON</a>. To retrieve results in XML form, specify
-          the HTTP header <code>Accept: text/xml</code> or include <code>accept=text/xml</code>
-          in the query string.
+            The default output format is <a href="https://json.org/">JSON</a>. To retrieve results in XML form, specify
+            the HTTP header <code>Accept: text/xml</code> or include <code>accept=text/xml</code>
+            in the query string.
     </ul>
 
     <h4>Example:</h4>
@@ -1107,7 +1226,7 @@ table#features, #features th, #features td { border: solid 1px black; }
     <h3>Route &ndash; find jump routes between worlds</h3>
     <h4>API URLs:</h4>
     <p class="code">
-        http://travellermap.com/api/route?start=<var>LOC</var>&amp;end=<var>LOC</var>&amp;jump=<var>N</var>
+        https://travellermap.com/api/route?start=<var>LOC</var>&amp;end=<var>LOC</var>&amp;jump=<var>N</var>
     </p>
 
     <h4>Parameters:</h4>
@@ -1133,6 +1252,9 @@ table#features, #features th, #features td { border: solid 1px black; }
 
         <dt>nored=1
         <dd>stops must not be restricted (TAS Red Zones)
+
+        <dt>aok=1
+        <dd>stops at anomalies/calibration points allowed
     </dl>
 
     <h4>Notes:</h4>
@@ -1152,7 +1274,7 @@ table#features, #features th, #features td { border: solid 1px black; }
         <li>Route restrictions (<code>wild</code>, <code>im</code>, <code>nored</code>)
           only apply to intermediate stops, not the start/end worlds.
         <li>
-          The default output format is <a href="http://json.org/">JSON</a>. To retrieve results in XML form, specify
+          The default output format is <a href="https://json.org/">JSON</a>. To retrieve results in XML form, specify
           the HTTP header <code>Accept: text/xml</code> or include <code>accept=text/xml</code>
           in the query string.
     </ul>
@@ -1167,11 +1289,11 @@ table#features, #features th, #features td { border: solid 1px black; }
     <h3>Universe &ndash; return a list of all sectors</h3>
     <h4>API URLs:</h4>
     <p class="code">
-        http://travellermap.com/api/universe
+        https://travellermap.com/api/universe
     </p>
     <h4>Data URLs:</h4>
     <p class="code">
-        http://travellermap.com/data
+        https://travellermap.com/data
     </p>
 
     <h4>Options:</h4>
@@ -1190,7 +1312,7 @@ table#features, #features th, #features td { border: solid 1px black; }
         <li>The <code>era</code> parameter filters on an exact match only; the tagging of sectors with a precise year is sparse
         <li>The <code>tag</code> matching is case-sensitive.
         <li>
-          The default output format is <a href="http://json.org/">JSON</a>. To retrieve results in XML form, specify
+          The default output format is <a href="https://json.org/">JSON</a>. To retrieve results in XML form, specify
           the HTTP header <code>Accept: text/xml</code> or include <code>accept=text/xml</code>
           in the query string.
 
@@ -1198,18 +1320,45 @@ table#features, #features th, #features td { border: solid 1px black; }
 
     <h4>Example:</h4>
     <p>
-        <a class="example" href="/api/universe?era=1000"></a>
+        <a class="example" href="/api/universe?milieu=M1105"></a>
     </p>
   </section>
+
+  <section id="milieux">
+    <h3>Milieux &ndash; return a list of all milieux</h3>
+    <h4>API URLs:</h4>
+    <p class="code">
+        https://travellermap.com/api/milieux
+    </p>
+
+    <h4>Notes:</h4>
+    <ul>
+        <li>Returns a list of milieux.
+          Each record (milieu) has a <code>Code</code> property with the abbreviation
+          (e.g. <code>M1105</code>, <code>IW</code>, etc), and an
+          <code>IsDefault</code> property (<code>true</code> or <code>false</code>).
+        <li>
+          The default output format is <a href="https://json.org/">JSON</a>. To retrieve results in XML form, specify
+          the HTTP header <code>Accept: text/xml</code> or include <code>accept=text/xml</code>
+          in the query string.
+
+    </ul>
+
+    <h4>Example:</h4>
+    <p>
+        <a class="example" href="/api/milieux"></a>
+    </p>
+  </section>
+
 
   <section id="t5ss">
     <h3>T5SS &ndash; return stock data</h3>
     <h4>Data URLs:</h4>
     <p class="code">
-        http://travellermap.com/t5ss/allegiances
+        https://travellermap.com/t5ss/allegiances
     </p>
     <p class="code">
-        http://travellermap.com/t5ss/sophonts
+        https://travellermap.com/t5ss/sophonts
     </p>
 
     <h4>Notes:</h4>
@@ -1221,7 +1370,7 @@ table#features, #features th, #features td { border: solid 1px black; }
           <code>Code</code> and <code>Name</code> pairs defining the
           T5SS sophont codes.
         <li>
-          The default output format is <a href="http://json.org/">JSON</a>. To retrieve results in XML form, specify
+          The default output format is <a href="https://json.org/">JSON</a>. To retrieve results in XML form, specify
           the HTTP header <code>Accept: text/xml</code> or include <code>accept=text/xml</code>
           in the query string.
     </ul>
@@ -1239,7 +1388,7 @@ table#features, #features th, #features td { border: solid 1px black; }
     <h3>Tile &ndash; render an arbitrary rectangle of space</h3>
     <h4>API URLs:</h4>
     <p class="code">
-        http://travellermap.com/api/tile?x=<var>x</var>&amp;y=<var>y</var>&amp;scale=<var>N</var>
+        https://travellermap.com/api/tile?x=<var>x</var>&amp;y=<var>y</var>&amp;scale=<var>N</var>
     </p>
 
     <h4>Parameters:</h4>
@@ -1276,26 +1425,26 @@ table#features, #features th, #features td { border: solid 1px black; }
 <h3>Poster &ndash; render a sector, quadrant or subsector</h3>
 <h4>API URLs:</h4>
 <p class="code">
-    http://travellermap.com/api/poster
+    https://travellermap.com/api/poster
 </p>
 <p class="code">
-    http://travellermap.com/api/poster?sector=<var>sector</var>
+    https://travellermap.com/api/poster?sector=<var>sector</var>
 </p>
 <p class="code">
-  http://travellermap.com/api/poster?sector=<var>sector</var>&amp;subsector=<var>subsector</var>
+  https://travellermap.com/api/poster?sector=<var>sector</var>&amp;subsector=<var>subsector</var>
 </p>
 <p class="code">
-  http://travellermap.com/api/poster?sector=<var>sector</var>&amp;quadrant=<var>quadrant</var>
+  https://travellermap.com/api/poster?sector=<var>sector</var>&amp;quadrant=<var>quadrant</var>
 </p>
 <h4>Data URLs:</h4>
 <p class="code">
-    http://travellermap.com/data/<var>sector</var>/image
+    https://travellermap.com/data/<var>sector</var>/image
 </p>
 <p class="code">
-    http://travellermap.com/data/<var>sector</var>/<var>subsector</var>/image
+    https://travellermap.com/data/<var>sector</var>/<var>subsector</var>/image
 </p>
 <p class="code">
-    http://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/image
+    https://travellermap.com/data/<var>sector</var>/<var>quadrant</var>/image
 </p>
 
 <h4>HTTP Methods:</h4>
@@ -1307,7 +1456,7 @@ table#features, #features th, #features td { border: solid 1px black; }
         <dt>sector <dd>sector name
         <dt>quadrant <dd>one of <code>Alpha</code>, <code>Beta</code>, <code>Gamma</code> or <code>Delta</code>
         <dt>subsector <dd>subsector (<code>A</code> &ndash; <code>P</code> or name)
-        <dt>domain <dd>one of the <a target="_blank" href="http://wiki.travellerrpg.com/Domain">domains of the Third Imperium</a> (Sylea, Vland, Gateway, Ilelish, Antares, Sol, Deneb)
+        <dt>domain <dd>one of the <a target=_blank rel=noopener href="https://wiki.travellerrpg.com/Domain">domains of the Third Imperium</a> (Sylea, Vland, Gateway, Ilelish, Antares, Sol, Deneb)
         <dt>x1
         <dt>y1 <dd>top-left hex (inclusive) of the rectangle in <a href="#system_world">World-Space Coordinates</a>
         <dt>x2
@@ -1350,19 +1499,25 @@ table#features, #features th, #features td { border: solid 1px black; }
           <a href="fileformats#sec">SEC</a> (<a href="/data/spin/sec">example</a>),
           <a href="fileformats#t5tab">T5 Tab Delimited</a> (<a href="/data/spin/tab">example</a>), or
           <a href="fileformats#t5col">T5 Column Delimited</a> (<a href="/data/spin">example</a>) format.
+        Worlds with UWP <code>???????-?</code> will be rendered as placeholders; worlds with remark <code>{Anomaly}</code> will be rendered using a special marker.
+
         Metadata must be specified in either
           <a href="metadata">XML</a> (<a href="/data/spin/metadata">example</a>) or
           <a href="http://dotclue.org/t20/">MSEC</a> (<a href="/data/spin/msec">example</a>) format.
 </dl>
 
+
 <h4>Options:</h4>
 <dl class="params">
     <dt>scale <dd>scale in pixels/parsec (default is 64)
     <dt>rotation <dd>rotate the image, 1 for 90&deg; clockwise, 2 for 180&deg;, 3 for 90&deg; counterclockwise
+    <dt>hrotation <dd>rotate rendering within the image (in degrees); useful values are 60 and -60
+    <dt>clampar=1 <dd>clamp aspect ratio between 4:5 and 1.91:1 (for popular image sharing sites)
     <dt>options <dd><a href="#options">rendering options</a>
     <dt>style <dd><a href="#options">rendering style</a>
     <dt>accept <dd>specify <code>application/pdf</code> for PDF output or <code>image/svg+xml</code> for SVG
     <dt>thumb=1 <dd>render a thumbnail (16 pixels/parsec)
+    <dt>compositing=1 <dd>clip to the exact hex borders and render on transparent background
 </dl>
 
 <h4>Notes:</h4>
@@ -1375,7 +1530,7 @@ table#features, #features th, #features td { border: solid 1px black; }
 
 <h4>Example:</h4>
 <p class="code">
-    &lt;img src="http://travellermap.com/api/poster?sector=spin&amp;subsector=C&amp;style=atlas&amp;scale=48"&gt;
+    &lt;img src="https://travellermap.com/api/poster?sector=spin&amp;subsector=C&amp;style=atlas&amp;scale=48"&gt;
 </p>
 <img src="/api/poster?sector=spin&amp;subsector=C&amp;style=atlas&amp;scale=48" style="border: solid 4px black;" alt="Regina Subsector">
 </section>
@@ -1384,17 +1539,17 @@ table#features, #features th, #features td { border: solid 1px black; }
     <h3>Jump Map &ndash; render hexes within N parsecs</h3>
     <h4>API URLs:</h4>
     <p class="code">
-        http://travellermap.com/api/jumpmap?sector=<var>sector</var>&amp;hex=<var>hex</var>&amp;jump=<var>jump</var>
+        https://travellermap.com/api/jumpmap?sector=<var>sector</var>&amp;hex=<var>hex</var>&amp;jump=<var>jump</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/jumpmap?sx=<var>sx</var>&amp;sy=<var>sy</var>&amp;hx=<var>hx</var>&amp;hy=<var>hy</var>&amp;jump=<var>jump</var>
+        https://travellermap.com/api/jumpmap?sx=<var>sx</var>&amp;sy=<var>sy</var>&amp;hx=<var>hx</var>&amp;hy=<var>hy</var>&amp;jump=<var>jump</var>
     </p>
     <p class="code">
-        http://travellermap.com/api/jumpmap?x=<var>x</var>&amp;y=<var>y</var>&amp;jump=<var>jump</var>
+        https://travellermap.com/api/jumpmap?x=<var>x</var>&amp;y=<var>y</var>&amp;jump=<var>jump</var>
     </p>
     <h4>Data URLs:</h4>
     <p class="code">
-      http://travellermap.com/data/<var>sector</var>/<var>hex</var>/jump/<var>jump</var>/image
+      https://travellermap.com/data/<var>sector</var>/<var>hex</var>/jump/<var>jump</var>/image
     </p>
 
 
@@ -1405,7 +1560,7 @@ table#features, #features th, #features td { border: solid 1px black; }
     <dd>The map to render is specified some combination of the following URL parameters:
       <h4>Parameters:</h4>
       <dl class="params">
-        <dt>jump <dd>jump distance to render (<code>0</code> through <code>12</code>, default is <code>6</code>)
+        <dt>jump <dd>jump distance to render (<code>0</code> through <code>20</code>, default is <code>6</code>)
         <dt>sector <dd>specify the <a href="#system_location">sector location</a> by name, e.g. "Spinward%20Marches"
         <dt>hex <dd>specify <a href="#system_location">hex location</a> within the named sector
         <dt>sx
@@ -1453,6 +1608,8 @@ table#features, #features th, #features td { border: solid 1px black; }
           <a href="fileformats#sec">SEC</a> (<a href="/data/spin/sec">example</a>),
           <a href="fileformats#t5tab">T5 Tab Delimited</a> (<a href="/data/spin/tab">example</a>), or
           <a href="fileformats#t5col">T5 Column Delimited</a> (<a href="/data/spin">example</a>) format.
+        Worlds with UWP <code>???????-?</code> will be rendered as placeholders; worlds with remark <code>{Anomaly}</code> will be rendered using a special marker.
+
         Metadata must be specified in either
           <a href="metadata">XML</a> (<a href="/data/spin/metadata">example</a>) or
           <a href="http://dotclue.org/t20/">MSEC</a> (<a href="/data/spin/msec">example</a>) format.
@@ -1463,7 +1620,9 @@ table#features, #features th, #features td { border: solid 1px black; }
         <dt>scale <dd>scale in pixels/parsec (default is 64)
         <dt>options <dd><a href="#options">rendering options</a>
         <dt>style <dd><a href="#options">rendering style</a>
+        <dt>clip=0 <dd>don't clip the jumpmap to hex edges
         <dt>border=0 <dd>don't render a thick border around the jumpmap
+        <dt>hrotation<dd>rotate rendering within the image (in degrees); useful values are 60 and -60
         <dt>accept <dd>specify <code>application/pdf</code> for PDF output or <code>image/svg+xml</code> for SVG
     </dl>
 
@@ -1477,7 +1636,7 @@ table#features, #features th, #features td { border: solid 1px black; }
 
     <h4>Example:</h4>
     <p class="code">
-        &lt;img src="http://travellermap.com/api/jumpmap?sector=spin&amp;hex=1910&amp;jump=4&amp;scale=48&amp;style=atlas"&gt;
+        &lt;img src="https://travellermap.com/api/jumpmap?sector=spin&amp;hex=1910&amp;jump=4&amp;scale=48&amp;style=atlas"&gt;
     </p>
     <img src="/api/jumpmap?sector=spin&amp;hex=1910&amp;jump=4&amp;scale=48&amp;style=atlas" alt="Regina Jump-4 Map">
   </section>
@@ -1574,7 +1733,7 @@ function sectorHexToWorldXY(sx, sy, hx, hy) {
         + (hx - REFERENCE_HEX_X);
   var y = (sy - REFERENCE_SECTOR_Y) * SECTOR_HEIGHT
         + (hy - REFERENCE_HEX_Y);
-  return {x: x, y: y};
+  return { x, y };
 }
   </pre>
   <p>
@@ -1633,7 +1792,7 @@ function worldXYToMapXY(world_x, world_y) {
   var iy = isEven(world_x) ? world_y - 0.5 : world_y
   var x = ix * PARSEC_SCALE_X;
   var y = iy * -PARSEC_SCALE_Y;
-  return {x: x, y: y};
+  return { x, y };
 }
   </pre>
   <p>
@@ -1681,23 +1840,23 @@ y = ( -map_center_y * scale - ( height / 2 ) ) / height;
   <h3>JSONP &ndash; Use data APIs in your Web pages</h3>
   <p class="aside">
     APIs on this site
-    output <a href="http://www.w3.org/TR/cors/">CORS</a> headers so if
+    output <a href="https://www.w3.org/TR/cors/">CORS</a> headers so if
     you know your users will be accessing your site using reasonably
-    <a target="_blank" href="http://caniuse.com/#search=cors">up-to-date browsers</a>
+    <a target=_blank rel=noopener href="https://caniuse.com/#search=cors">up-to-date browsers</a>
     you can call the APIs directly via
     <a href="https://fetch.spec.whatwg.org">fetch</a> or
     <a href="https://xhr.spec.whatwg.org">XMLHttpRequest</a>
     rather than using JSONP trick described below.
   </p>
   <p>
-      Web browsers enforce a <a href="http://en.wikipedia.org/wiki/Same_origin_policy">Same Origin Policy</a>
+      Web browsers enforce a <a href="https://en.wikipedia.org/wiki/Same_origin_policy">Same Origin Policy</a>
       on content, to stop a page on evilhacker.com from scripting access to your bank account with your stored
       credentials. This is a good thing! Unfortunately, it also means that sites that want to cooperate have
       to jump through some hurdles. For example, you can't have a web page on your site that calls directly
       into one of the APIs on this site (via XMLHttpRequest) from JavaScript. Either the the sites need to have
       server-to-server communication (which is troublesome to set up, impractical in some circumstances, and
       introduces its own security issues) or they can play some tricks.
-      <a href="http://en.wikipedia.org/wiki/JSONP#JSONP">JSONP</a> is one of those tricks.
+      <a href="https://en.wikipedia.org/wiki/JSONP#JSONP">JSONP</a> is one of those tricks.
   </p>
   <p>
       Web browsers allow pages to dynamically add content via script. They can even add references to additional
@@ -1736,7 +1895,7 @@ y = ( -map_center_y * scale - ( height / 2 ) ) / height;
 <span class="comment">// Call this function with a search query and callback:</span>
 function jsonp_example(q, cb) {
   var name = <span class="string">'_cbfun'</span>;
-  var url = <span class="string">'http://travellermap.com/api/search?q='</span> +
+  var url = <span class="string">'https://travellermap.com/api/search?q='</span> +
             encodeURIComponent(q) + <span class="string">'&amp;jsonp='</span> + name;
   var script_tag = document.createElement(<span class="string">'script'</span>);
   script_tag.setAttribute(<span class="string">'src'</span>, url);
@@ -1763,7 +1922,7 @@ jsonp_example('Regina', function(data) {
 // Call this function with a search query and callback:
 function jsonp_example(q, cb) {
   var name = '_cbfun';
-  var url = 'http://travellermap.com/api/search?q=' +
+  var url = 'https://travellermap.com/api/search?q=' +
             encodeURIComponent(q) + '&jsonp=' + name;
   var script_tag = document.createElement('script');
   script_tag.setAttribute('src', url);
@@ -1789,22 +1948,22 @@ function jsonp_demo() {
 </div>
 
 <script>
-  (function () {
+  (() => {
     // Remove leading/trailing lines from <pre>
-    Array.from(document.querySelectorAll('pre')).forEach(function (pre) {
+    Array.from(document.querySelectorAll('pre')).forEach(pre => {
       pre.innerHTML = pre.innerHTML.replace(/(^ +\r?\n)|(\r?\n +$)/g, '');
     });
 
     // Shortcut: <a class="example" href="foo"></a>
-    Array.from(document.querySelectorAll('a.example')).forEach(function (a) {
+    Array.from(document.querySelectorAll('a.example')).forEach(a => {
       a.appendChild(document.createTextNode(a.href));
     });
 
     // Allow breaking after / ? and & in code
-    Array.from(document.querySelectorAll('.code')).forEach(function (e) {
+    Array.from(document.querySelectorAll('.code')).forEach(e => {
       function textNodes(e) {
-        var t = [];
-        for (var n = e.firstChild; n; n = n.nextSibling) {
+        let t = [];
+        for (let n = e.firstChild; n; n = n.nextSibling) {
           switch (n.nodeType) {
             case Node.TEXT_NODE:
               t.push(n); break;
@@ -1818,24 +1977,22 @@ function jsonp_demo() {
       }
 
       // Inserted ZWJs show up when copied, so insert <wbr>
-      textNodes(e).forEach(function(t) {
+      textNodes(e).forEach(t => {
         while (true) {
-          var m = /[/?&]+/.exec(t.nodeValue);
+          const m = /[/?&]+/.exec(t.nodeValue);
           if (!m) break;
           t = t.splitText(m.index + m[0].length);
           t.parentNode.insertBefore(document.createElement('wbr'), t);
         }
       });
     });
-  }());
+  })();
 </script>
 
 <div class="editorial">
   <p>
-    The <em class="product">Traveller</em> game in all forms is owned by Far
-Future Enterprises. Copyright &copy; 1977 &ndash; 2017 Far Future
-Enterprises.
-    <a href="http://farfuture.net/FFEFairUsePolicy2008.pdf">Fair Use Policy</a>
+    The <em class="product">Traveller</em> game in all forms is owned by Mongoose Publishing. Copyright 1977 &ndash; 2024 Mongoose Publishing.
+    <a href="https://cdn.shopify.com/s/files/1/0609/6139/0839/files/Traveller_Fair_Use_Policy_2024.pdf?v=1725357857">Fair Use Policy</a>
 </div>
 
 <a class="forkme" href="https://github.com/inexorabletash/travellermap"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub"></a>

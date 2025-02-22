@@ -16,7 +16,7 @@
 
     ]]>
   </Credits>
-  <DataFile Source="Traveller 5 Second Survey" Milieu="M1105" Author="Joe Fugate" Type="TabDelimited">Riftspan Reaches.tab</DataFile>
+  <Product Publisher="Mongoose Publishing" Author="Martin J. Dougherty" Title="The Great Rift, Book 1: The Great Rift" Ref="https://www.mongoosepublishing.com/products/the-great-rift" />
   <Subsectors Publisher="DGP" Source="The Travellers' Digest #19" Milieu="1120">
     <Subsector Index="A">Aulryakh</Subsector>
     <Subsector Index="B">Hwiwuiyo</Subsector>
@@ -86,7 +86,7 @@
     <Route Start="0102" End="0201" Allegiance="As" />
     <Route Start="0201" End="0402" Allegiance="As" />
     <Route Start="0402" End="0503" Allegiance="As" />
-    <Route Start="0003" End="0104" Allegiance="As" />
+    <Route Start="3104" StartOffsetX="-1" End="0104" Allegiance="As" />
     <Route Start="0104" End="0204" Allegiance="As" />
     <Route Start="0204" End="0404" Allegiance="As" />
     <Route Start="0404" End="0306" Allegiance="As" />
@@ -114,4 +114,13 @@
     <Route Start="1838" End="1840" Allegiance="As" />
     <Route Start="1840" End="1941" Allegiance="As" />
   </Routes>
+  <Regions>
+    <Region Label="Fisher Trench" WrapLabel="true" Color="seagreen">1507</Region>
+    <Region Label="The Emadi Deep" WrapLabel="true" Color="purple">
+      2638 2738 2838 2839 2740 2639 2638
+    </Region>
+    <Region Label="Anellet Cloud" Color="darkgreen">
+      2806 2907 2908 2907 2806
+    </Region>
+  </Regions>
 </Sector>

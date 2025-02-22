@@ -4,18 +4,24 @@ using Maps.API;
 using Maps.HTTP;
 using System;
 using System.Globalization;
+using System.Net;
 using System.Web.Routing;
 
 namespace Maps
 {
     public class GlobalAsax : System.Web.HttpApplication
     {
+        public static readonly DateTime startup_time = DateTime.Now;
+
         protected void Application_Start(object sender, EventArgs e)
         {
+            // Shouldn't be necessary (included in 4.5 by default?), but ensure TLS 1.2 is used.
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
             RegisterRoutes(RouteTable.Routes);
         }
-        
+
         private static void RegisterRoutes(RouteCollection routes)
         {
             var DEFAULT_JSON = new RouteValueDictionary { { "accept", JsonConstants.MediaType } };
@@ -27,7 +33,7 @@ namespace Maps
             routes.Add(new RegexRoute(@"/go/(?<sector>[^/]+)/(?<subsector>[^/]+)", new RedirectRouteHandler("/?sector={sector}&subsector={subsector}", statusCode: 302)));
 
             routes.Add(new RegexRoute(@"/booklet/(?<sector>[^/]+)", new RedirectRouteHandler("/make/booklet?sector={sector}", statusCode: 302)));
-            routes.Add(new RegexRoute(@"/sheet/(?<sector>[^/]+)/(?<hex>[0-9]{4})", new RedirectRouteHandler("/world?sector={sector}&hex={hex}", statusCode: 302)));
+            routes.Add(new RegexRoute(@"/sheet/(?<sector>[^/]+)/(?<hex>[0-9]{4})", new RedirectRouteHandler("/print/world?sector={sector}&hex={hex}", statusCode: 302)));
 
             // Administration -----------------------------------------------
 
@@ -38,7 +44,10 @@ namespace Maps
                 new RouteValueDictionary(new { action = "reindex" })));
             routes.Add(new RegexRoute(@"/admin/profile", new GenericRouteHandler(typeof(AdminHandler)),
                 new RouteValueDictionary(new { action = "profile" })));
+            routes.Add(new RegexRoute(@"/admin/uptime", new GenericRouteHandler(typeof(AdminHandler)),
+                new RouteValueDictionary(new { action = "uptime" })));
             routes.Add(new RegexRoute(@"/admin/codes", new GenericRouteHandler(typeof(CodesHandler))));
+            routes.Add(new RegexRoute(@"/admin/routes", new GenericRouteHandler(typeof(RoutesHandler))));
             routes.Add(new RegexRoute(@"/admin/dump", new GenericRouteHandler(typeof(DumpHandler))));
             routes.Add(new RegexRoute(@"/admin/errors", new GenericRouteHandler(typeof(ErrorsHandler))));
             routes.Add(new RegexRoute(@"/admin/overview", new GenericRouteHandler(typeof(OverviewHandler))));
@@ -66,6 +75,7 @@ namespace Maps
             // Data Retrieval - API-centric ---------------------------------
 
             routes.Add(new RegexRoute(@"/api/universe", new GenericRouteHandler(typeof(UniverseHandler)), DEFAULT_JSON));
+            routes.Add(new RegexRoute(@"/api/milieux", new GenericRouteHandler(typeof(MilieuxCodesHandler)), DEFAULT_JSON));
             routes.Add(new RegexRoute(@"/api/sec", new GenericRouteHandler(typeof(SECHandler)), new RouteValueDictionary { { "type", "SecondSurvey" } }));
             routes.Add(new RegexRoute(@"/api/sec/(?<sector>[^/]+)", new GenericRouteHandler(typeof(SECHandler)), new RouteValueDictionary { { "type", "SecondSurvey" } }));
             routes.Add(new RegexRoute(@"/api/sec/(?<sector>[^/]+)/(?<quadrant>alpha|beta|gamma|delta)", new GenericRouteHandler(typeof(SECHandler)), new RouteValueDictionary { { "type", "SecondSurvey" }, { "metadata", 0 } }));
@@ -85,7 +95,7 @@ namespace Maps
             routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/tab", new GenericRouteHandler(typeof(SECHandler)), new RouteValueDictionary { { "type", "TabDelimited" } }));
             routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/coordinates", new GenericRouteHandler(typeof(CoordinatesHandler)), DEFAULT_JSON));
             routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/credits", new GenericRouteHandler(typeof(CreditsHandler)), DEFAULT_JSON));
-            routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/metadata", new GenericRouteHandler(typeof(SectorMetaDataHandler)))); // NOTE: XML by default 
+            routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/metadata", new GenericRouteHandler(typeof(SectorMetaDataHandler)))); // NOTE: XML by default
             routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/msec", new GenericRouteHandler(typeof(MSECHandler))));
             routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/image", new GenericRouteHandler(typeof(PosterHandler))));
 
@@ -111,7 +121,7 @@ namespace Maps
             routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/(?<hex>[0-9]{4})/image", new GenericRouteHandler(typeof(JumpMapHandler)), new RouteValueDictionary { { "jump", "0" } }));
             routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/(?<hex>[0-9]{4})/jump/(?<jump>\d+)/image", new GenericRouteHandler(typeof(JumpMapHandler))));
 
-            routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/(?<hex>[0-9]{4})/sheet", new RedirectRouteHandler("/world?sector={sector}&hex={hex}", statusCode: 302)));
+            routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/(?<hex>[0-9]{4})/sheet", new RedirectRouteHandler("/print/world?sector={sector}&hex={hex}", statusCode: 302)));
 
             // Subsector by Name e.g. /data/Spinward Marches/Regina
             routes.Add(new RegexRoute(@"/data/(?<sector>[^/]+)/(?<subsector>[^/]+)", new GenericRouteHandler(typeof(SECHandler)), new RouteValueDictionary { { "type", "SecondSurvey" }, { "metadata", "0" } }));

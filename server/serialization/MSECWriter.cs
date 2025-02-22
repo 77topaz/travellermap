@@ -1,11 +1,9 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Maps.Serialization
 {
@@ -17,8 +15,7 @@ namespace Maps.Serialization
 
         public override void Serialize(TextWriter writer, Sector sector)
         {
-            var serializer = new Serializer(sector, writer);
-            serializer.Serialize();
+            new Serializer(sector, writer).Serialize();
             writer.Flush();
         }
 
@@ -80,7 +77,7 @@ namespace Maps.Serialization
                 //
                 List<IAllegiance> list = new List<IAllegiance>();
                 list.AddRange(sector.Allegiances); // TODO: Output stock allegiances
-                list.AddRange(sector.Borders);
+                list.AddRange(sector.BordersAndRegions);
                 list.AddRange(sector.Routes);
                 list.AddRange(sector.Labels);
 
@@ -88,8 +85,8 @@ namespace Maps.Serialization
                 //
                 list.Sort(CompareAllegiances);
                 bool isFirst = true;
-                string code = null;
-                Allegiance alleg = null;
+                string? code = null;
+                Allegiance? alleg = null;
                 foreach (IAllegiance item in list)
                 {
                     // Determine allegiance
@@ -118,14 +115,21 @@ namespace Maps.Serialization
                     }
 
                     // Output the item
-                    if (item is Allegiance)
-                        WriteAllegiance(item as Allegiance);
-                    else if (item is Border)
-                        WriteBorder(item as Border, alleg);
-                    else if (item is Label)
-                        WriteLabel(item as Label);
-                    else if (item is Route)
-                        WriteRoute(item as Route);
+                    switch (item)
+                    {
+                        case Allegiance allegiance:
+                            WriteAllegiance(allegiance);
+                            break;
+                        case Border border:
+                            WriteBorder(border, alleg, code);
+                            break;
+                        case Label label:
+                            WriteLabel(label);
+                            break;
+                        case Route route:
+                            WriteRoute(route);
+                            break;
+                    }
                 }
             }
 
@@ -172,7 +176,7 @@ namespace Maps.Serialization
                     if (line.Length > 0)
                     {
                         writer.Write("label ");
-                        writer.Write(label.Hex.ToString("0000", CultureInfo.InvariantCulture));
+                        writer.Write(label.Hex);
                         if (offset != 0)
                         {
                             writer.Write("/");
@@ -189,21 +193,21 @@ namespace Maps.Serialization
                 // TODO: Other properties
             }
 
-            private void WriteBorder(Border border, Allegiance alleg)
+            private void WriteBorder(Border border, Allegiance? alleg, string? code = null)
             {
                 if (border.ShowLabel && (border.Label != null || alleg != null))
                 {
                     writer.Write("label ");
                     writer.Write(border.LabelPositionHex);
                     writer.Write(" ");
-                    writer.Write(border.Label ?? alleg.Name);
+                    writer.Write(border.Label ?? alleg?.Name ?? "");
                     writer.WriteLine();
                 }
 
-                writer.Write("border ");
+                writer.Write(border is Region ? "region " : "border ");
                 writer.Write(border.PathString);
 
-                SectorStylesheet.StyleResult ssr = sector.ApplyStylesheet("border", alleg?.T5Code);
+                SectorStylesheet.StyleResult ssr = sector.ApplyStylesheet(border is Region ? "region" : "border", alleg?.T5Code ?? code);
                 Color? color = border.Color ?? ssr.GetColor("color");
                 if (color.HasValue)
                 {
@@ -212,7 +216,7 @@ namespace Maps.Serialization
                 }
                 writer.WriteLine();
             }
-            
+
             private static int CompareAllegiances(IAllegiance a, IAllegiance b)
             {
                 if (a == null)

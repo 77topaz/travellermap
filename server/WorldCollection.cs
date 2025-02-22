@@ -1,10 +1,11 @@
+#nullable enable
 using Maps.Serialization;
+using Maps.Utilities;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Mime;
 
 namespace Maps
 {
@@ -27,6 +28,7 @@ namespace Maps
         }
 
         public bool IsUserData { get; }
+
         private World[,] worlds = new World[Astrometrics.SectorWidth, Astrometrics.SectorHeight];
         public World this[int x, int y]
         {
@@ -49,8 +51,9 @@ namespace Maps
                 worlds[x - 1, y - 1] = value;
             }
         }
-        public World this[int hex] { get { return this[hex / 100, hex % 100]; } }
-        public World this[Hex hex] { get { return this[hex.X, hex.Y]; } }
+
+        public World this[int hex] => this[hex / 100, hex % 100];
+        public World this[Hex hex] => this[hex.X, hex.Y];
 
         public IEnumerator<World> GetEnumerator()
         {
@@ -65,35 +68,48 @@ namespace Maps
             }
         }
 
-        IEnumerator IEnumerable.GetEnumerator() { return GetEnumerator(); }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        private ErrorLogger errors = null;
-        public ErrorLogger ErrorList { get { return errors; } }
-
-        public void Serialize(TextWriter writer, string mediaType, SectorSerializeOptions options)
+        private ErrorLogger? errors = null;
+        public ErrorLogger? ErrorList => errors;
+        public void Serialize(TextWriter writer, string? mediaType, SectorSerializeOptions options)
         {
             SectorFileSerializer.ForType(mediaType).Serialize(writer,
                 options.filter == null ? this : this.Where(world => options.filter(world)), options);
         }
 
-        public void Deserialize(Stream stream, string mediaType, ErrorLogger errors = null)
+        public void Deserialize(Stream stream, string? mediaType, ErrorLogger? log = null)
         {
-            if (mediaType == null || mediaType == MediaTypeNames.Text.Plain || mediaType == MediaTypeNames.Application.Octet)
+            if (mediaType == null || mediaType == ContentTypes.Text.Plain || mediaType == ContentTypes.Application.Octet)
                 mediaType = SectorFileParser.SniffType(stream);
             SectorFileParser parser = SectorFileParser.ForType(mediaType);
-            parser.Parse(stream, this, errors);
-            if (errors != null && !errors.Empty)
+            parser.Parse(stream, this, log);
+            if (log != null && !log.Empty)
             {
-                errors.Prepend(ErrorLogger.Severity.Warning, $"Parsing as: {parser.Name}");
+                log.Prepend(ErrorLogger.Severity.Hint, $"Parsing as: {parser.Name}");
             }
         }
 
-        public HashSet<string> AllegianceCodes()
+        public ISet<string> AllegianceCodes() => new HashSet<string>(this.Select(world => world.Allegiance));
+
+        // Make a copy of this collection with all the worlds replaced by placeholders.
+        // The World objects will have null Sectors
+        public WorldCollection MakeDotmap()
         {
-            var set = new HashSet<string>();
+            WorldCollection dots = new WorldCollection();
             foreach (var world in this)
-                set.Add(world.Allegiance);
-            return set;
+            {
+                var dot = new World()
+                {
+                    Hex = world.Hex,
+                    UWP = "???????-?",
+                    PBG = "???",
+                    Allegiance = "??",
+                    Sector = null
+                };
+                dots[dot.X, dot.Y] = dot;
+            }
+            return dots;
         }
     }
 }

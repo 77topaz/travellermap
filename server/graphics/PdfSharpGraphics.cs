@@ -1,4 +1,6 @@
-﻿using PdfSharp.Drawing;
+﻿#nullable enable
+using Maps.Utilities;
+using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using System;
 using System.Collections.Generic;
@@ -7,7 +9,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Linq;
 
-namespace Maps.Rendering
+namespace Maps.Graphics
 {
     internal class PdfSharpGraphics : AbstractGraphics
     {
@@ -15,9 +17,11 @@ namespace Maps.Rendering
         private XSolidBrush brush;
         private XPen pen;
 
-        public PdfSharpGraphics(XGraphics g) { this.g = g;
-            this.brush = new XSolidBrush();
-            this.pen = new XPen(Color.Empty);
+        public PdfSharpGraphics(XGraphics g)
+        {
+            this.g = g;
+            brush = new XSolidBrush();
+            pen = new XPen(Color.Empty);
         }
 
         private void Apply(AbstractBrush brush)
@@ -47,16 +51,14 @@ namespace Maps.Rendering
         {
             if (fontMap.ContainsKey(font))
                 return fontMap[font];
-            XFont xfont = new XFont(font, new XPdfFontOptions(PdfFontEncoding.Unicode, PdfFontEmbedding.Always));
+            XFont xfont = new XFont(font, new XPdfFontOptions(PdfFontEncoding.Unicode));
             fontMap.Add(font, xfont);
             return xfont;
         }
 
-        public bool SupportsWingdings { get { return true; } }
-
-        public SmoothingMode SmoothingMode { get { return (SmoothingMode)g.SmoothingMode; } set { g.SmoothingMode = (XSmoothingMode)value; } }
-        public Graphics Graphics { get { return g.Graphics; } }
-
+        public bool SupportsWingdings => true;
+        public SmoothingMode SmoothingMode { get => (SmoothingMode)g.SmoothingMode; set => g.SmoothingMode = (XSmoothingMode)value; }
+        public System.Drawing.Graphics? Graphics => g.Graphics;
         public void ScaleTransform(float scaleXY) { g.ScaleTransform(scaleXY); }
         public void ScaleTransform(float scaleX, float scaleY) { g.ScaleTransform(scaleX, scaleY); }
         public void TranslateTransform(float dx, float dy) { g.TranslateTransform(dx, dy); }
@@ -69,7 +71,7 @@ namespace Maps.Rendering
         public void DrawLine(AbstractPen pen, float x1, float y1, float x2, float y2) { Apply(pen); g.DrawLine(this.pen, x1, y1, x2, y2); }
         public void DrawLine(AbstractPen pen, PointF pt1, PointF pt2) { Apply(pen); g.DrawLine(this.pen, pt1, pt2); }
         public void DrawLines(AbstractPen pen, PointF[] points) { Apply(pen); g.DrawLines(this.pen, points); }
-        public void DrawPath(AbstractPen pen, AbstractPath path) { Apply(pen);  g.DrawPath(this.pen, new XGraphicsPath(path.Points, path.Types, XFillMode.Winding)); }
+        public void DrawPath(AbstractPen pen, AbstractPath path) { Apply(pen); g.DrawPath(this.pen, new XGraphicsPath(path.Points, path.Types, XFillMode.Winding)); }
         public void DrawPath(AbstractBrush brush, AbstractPath path) { Apply(brush); g.DrawPath(this.brush, new XGraphicsPath(path.Points, path.Types, XFillMode.Winding)); }
         public void DrawCurve(AbstractPen pen, PointF[] points, float tension) { Apply(pen); g.DrawCurve(this.pen, points, tension); }
         public void DrawClosedCurve(AbstractPen pen, PointF[] points, float tension) { Apply(pen); g.DrawClosedCurve(this.pen, points, tension); }
@@ -83,35 +85,49 @@ namespace Maps.Rendering
         public void DrawEllipse(AbstractPen pen, AbstractBrush brush, float x, float y, float width, float height) { Apply(pen, brush); g.DrawEllipse(this.pen, this.brush, x, y, width, height); }
         public void DrawArc(AbstractPen pen, float x, float y, float width, float height, float startAngle, float sweepAngle) { Apply(pen); g.DrawArc(this.pen, x, y, width, height, startAngle, sweepAngle); }
 
-        public void DrawImage(AbstractImage image, float x, float y, float width, float height) { g.DrawImage(image.XImage, x, y, width, height); }
+        public void DrawImage(AbstractImage image, float x, float y, float width, float height)
+        {
+            XImage ximage = image.XImage;
+            lock (ximage)
+            {
+                g.DrawImage(ximage, x, y, width, height);
+            }
+        }
+
+        const int ALPHA_STEPS = 16;
+
         public void DrawImageAlpha(float alpha, AbstractImage mimage, RectangleF targetRect)
         {
+            XImage ximage;
+
             // Clamp and Quantize
-            alpha = Util.Clamp(alpha, 0f, 1f);
-            alpha = (float)Math.Round(alpha * 16f) / 16f;
+            alpha = alpha.Clamp(0f, 1f);
+            alpha = (float)Math.Round(alpha * ALPHA_STEPS) / ALPHA_STEPS;
             if (alpha <= 0f)
                 return;
-            if (alpha >= 1f)
+
+            ximage = (alpha >= 1f) ? mimage.XImage : GetAlphaVariant(alpha, mimage);
+            lock (ximage)
             {
-                g.DrawImage(mimage.XImage, targetRect);
-                return;
+                g.DrawImage(ximage, targetRect);
             }
+        }
 
-            int key = (int)Math.Round(alpha * 16);
-
-            Image image = mimage.Image;
-            XImage ximage;
-            int w, h;
-
+        private static XImage GetAlphaVariant(float alpha, AbstractImage mimage)
+        {
+            Image image = mimage.Image!;
             lock (image)
             {
-                w = image.Width;
-                h = image.Height;
+                XImage ximage;
 
-                if (image.Tag == null || !(image.Tag is Dictionary<int, XImage>))
-                    image.Tag = new Dictionary<int, XImage>();
+                int w = image.Width;
+                int h = image.Height;
+                int key = (int)Math.Round(alpha * ALPHA_STEPS);
 
-                Dictionary<int, XImage> dict = image.Tag as Dictionary<int, XImage>;
+
+                if (!(image.Tag is Dictionary<int, XImage> dict))
+                    image.Tag = dict = new Dictionary<int, XImage>();
+
                 if (dict.ContainsKey(key))
                 {
                     ximage = dict[key];
@@ -123,14 +139,16 @@ namespace Maps.Rendering
                     // a small set
 
                     Bitmap scratchBitmap = new Bitmap(w, h, PixelFormat.Format32bppArgb);
-                    using (var scratchGraphics = Graphics.FromImage(scratchBitmap))
+                    using (var scratchGraphics = System.Drawing.Graphics.FromImage(scratchBitmap))
                     {
-                        ColorMatrix matrix = new ColorMatrix();
-                        matrix.Matrix00 = matrix.Matrix11 = matrix.Matrix22 = 1;
-                        matrix.Matrix33 = alpha;
-
                         ImageAttributes attr = new ImageAttributes();
-                        attr.SetColorMatrix(matrix);
+                        attr.SetColorMatrix(new ColorMatrix()
+                        {
+                            Matrix00 = 1,
+                            Matrix11 = 1,
+                            Matrix22 = 1,
+                            Matrix33 = alpha
+                        });
 
                         scratchGraphics.DrawImage(image, new Rectangle(0, 0, w, h), 0, 0, w, h, GraphicsUnit.Pixel, attr);
                     }
@@ -138,48 +156,43 @@ namespace Maps.Rendering
                     ximage = XImage.FromGdiPlusImage(scratchBitmap);
                     dict[key] = ximage;
                 }
-            }
-
-            lock (ximage)
-            {
-                g.DrawImage(ximage, targetRect);
+                return ximage;
             }
         }
 
-        public SizeF MeasureString(string text, Font font) {
-            return g.MeasureString(text, font).ToSizeF();
-        }
-        public void DrawString(string s, Font font, AbstractBrush brush, float x, float y, StringAlignment format)
+        public SizeF MeasureString(string text, AbstractFont font) => g.MeasureString(text, font.Font).ToSizeF();
+
+        public void DrawString(string s, AbstractFont font, AbstractBrush brush, float x, float y, StringAlignment format)
         {
             Apply(brush);
-            g.DrawString(s, Convert(font), this.brush, x, y, Format(format));
+            g.DrawString(s, Convert(font.Font), this.brush, x, y, Format(format));
         }
 
-        public AbstractGraphicsState Save() { return new State(this, g.Save()); }
+        public AbstractGraphicsState Save() => new State(this, g.Save());
         public void Restore(AbstractGraphicsState state) { g.Restore(((State)state).state); }
 
         #region StringFormats
         private static XStringFormat CreateStringFormat(XStringAlignment alignment, XLineAlignment lineAlignment)
         {
-            XStringFormat format = new XStringFormat();
-            format.Alignment = alignment;
-            format.LineAlignment = lineAlignment;
+            XStringFormat format = new XStringFormat()
+            {
+                Alignment = alignment,
+                LineAlignment = lineAlignment
+            };
             return format;
         }
 
-        private XStringFormat Format(StringAlignment alignment)
-        {
-            switch (alignment)
+        private XStringFormat Format(StringAlignment alignment) =>
+            alignment switch
             {
-                case StringAlignment.Centered: return centeredFormat;
-                case StringAlignment.TopLeft: return topLeftFormat;
-                case StringAlignment.TopCenter: return topCenterFormat;
-                case StringAlignment.TopRight: return topRightFormat;
-                case StringAlignment.CenterLeft: return centerLeftFormat;
-                case StringAlignment.Baseline: return defaultFormat;
-                default: throw new ApplicationException("Unhandled string alignment");
-            }
-        }
+                StringAlignment.Centered => centeredFormat,
+                StringAlignment.TopLeft => topLeftFormat,
+                StringAlignment.TopCenter => topCenterFormat,
+                StringAlignment.TopRight => topRightFormat,
+                StringAlignment.CenterLeft => centerLeftFormat,
+                StringAlignment.Baseline => defaultFormat,
+                _ => throw new ApplicationException("Unhandled string alignment"),
+            };
 
         private readonly XStringFormat defaultFormat = CreateStringFormat(XStringAlignment.Near, XLineAlignment.BaseLine);
         private readonly XStringFormat centeredFormat = CreateStringFormat(XStringAlignment.Center, XLineAlignment.Center);
@@ -190,24 +203,22 @@ namespace Maps.Rendering
         #endregion
 
         #region IDisposable Support
-        private bool disposedValue = false; // To detect redundant calls
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    g.Dispose();
-                    g = null;
-                }
-                disposedValue = true;
-            }
-        }
+        private bool disposed = false;
 
         void IDisposable.Dispose()
         {
             Dispose(true);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposed)
+                return;
+            if (disposing)
+            {
+                g.Dispose();
+            }
+            disposed = true;
         }
         #endregion
 

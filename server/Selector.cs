@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -26,17 +27,31 @@ namespace Maps
         public abstract IEnumerable<Sector> Sectors { get; }
         public abstract IEnumerable<World> Worlds { get; }
 
-        public IEnumerable<Border> Borders { get { return Sectors.SelectMany(sector => sector.Borders); } }
+        public IEnumerable<Border> Borders => Sectors.SelectMany(sector => sector.Borders);
+        public virtual IEnumerable<Tuple<Sector, Route>> Routes => Sectors.SelectMany(sector => sector.Routes, (sector, route) => Tuple.Create(sector, route));
 
-        public IEnumerable<Route> Routes { get { return Sectors.SelectMany(sector => sector.Routes); } }
+        public IEnumerable<Label> Labels => Sectors.SelectMany(sector => sector.Labels);
+        public IEnumerable<Subsector> Subsectors => Sectors.SelectMany(sector => Enumerable.Range(0, 16).Select(i => sector.Subsector(i)).OfType<Subsector>());
 
-        public IEnumerable<Label> Labels { get { return Sectors.SelectMany(sector => sector.Labels); } }
-
-        public IEnumerable<Subsector> Subsectors
+        protected IEnumerable<Tuple<Sector, Route>> FilteredRoutes(Rectangle bounds)
         {
-            get
+            // Passed bounds are intended for rendering, where the lower-right edge of a hex is at (0,0) and
+            // therefore the bounds are offset by (-1,-1) already to include the specified hex. Compensate here
+            // by offsetting.
+            bounds.Offset(1, 1);
+
+            foreach (Sector sector in Sectors)
             {
-                return Sectors.SelectMany(sector => Enumerable.Range(0, 16).Select(i => sector.Subsector(i)).OfType<Subsector>());
+                foreach (Route route in sector.Routes)
+                {
+                    sector.RouteToStartEnd(route, out Location startLocation, out Location endLocation);
+
+                    if (bounds.Contains(Astrometrics.LocationToCoordinates(startLocation))
+                        || bounds.Contains(Astrometrics.LocationToCoordinates(endLocation)))
+                    {
+                        yield return Tuple.Create(sector, route);
+                    }
+                }
             }
         }
     }
@@ -48,20 +63,14 @@ namespace Maps
 
         public SectorSelector(ResourceManager resourceManager, Sector sector)
         {
-            if (resourceManager == null)
-                throw new ArgumentNullException(nameof(resourceManager));
-
-            if (sector == null)
-                throw new ArgumentNullException(nameof(sector));
-
-            this.sector = sector;
-            this.resourceManager = resourceManager;
+            this.sector = sector ?? throw new ArgumentNullException(nameof(sector));
+            this.resourceManager = resourceManager ?? throw new ArgumentNullException(nameof(resourceManager));
         }
-
 
         public override IEnumerable<Sector> Sectors { get { yield return sector; } }
 
-        public override IEnumerable<World> Worlds { get { return sector.GetWorlds(resourceManager, cacheResults: true); } }
+        public override IEnumerable<World> Worlds => sector.GetWorlds(resourceManager, cacheResults: true) ?? Enumerable.Empty<World>();
+        public override IEnumerable<Tuple<Sector, Route>> Routes => FilteredRoutes(sector.Bounds);
     }
 
 
@@ -73,18 +82,11 @@ namespace Maps
 
         public SubsectorSelector(ResourceManager resourceManager, Sector sector, int index)
         {
-            if (resourceManager == null)
-                throw new ArgumentNullException(nameof(resourceManager));
-
-            if (sector == null)
-                throw new ArgumentNullException(nameof(sector));
-
+            this.resourceManager = resourceManager ?? throw new ArgumentNullException(nameof(resourceManager));
+            this.sector = sector ?? throw new ArgumentNullException(nameof(sector));
             if (index < 0 || index >= 16)
                 throw new ArgumentOutOfRangeException(nameof(index), index, "must be 0...15");
-
-            this.sector = sector;
             this.index = index;
-            this.resourceManager = resourceManager;
         }
 
 
@@ -97,19 +99,24 @@ namespace Maps
                 int ssx = index % 4;
                 int ssy = index / 4;
 
-                WorldCollection worlds = sector.GetWorlds(resourceManager);
+                WorldCollection? worlds = sector.GetWorlds(resourceManager);
+                if (worlds == null)
+                    yield break;
                 for (int x = 0; x < Astrometrics.SubsectorWidth; ++x)
                 {
                     for (int y = 0; y < Astrometrics.SubsectorHeight; ++y)
                     {
-                        World world = worlds[1 + x + Astrometrics.SubsectorWidth * ssx, 1 + y + Astrometrics.SubsectorHeight * ssy];
+                        World? world = worlds[1 + x + Astrometrics.SubsectorWidth * ssx, 1 + y + Astrometrics.SubsectorHeight * ssy];
                         if (world == null)
                             continue;
+
                         yield return world;
                     }
                 }
             }
         }
+
+        public override IEnumerable<Tuple<Sector, Route>> Routes => FilteredRoutes(sector.SubsectorBounds(index));
     }
 
     internal class QuadrantSelector : Selector
@@ -120,18 +127,11 @@ namespace Maps
 
         public QuadrantSelector(ResourceManager resourceManager, Sector sector, int index)
         {
-            if (resourceManager == null)
-                throw new ArgumentNullException(nameof(resourceManager));
-
-            if (sector == null)
-                throw new ArgumentNullException(nameof(sector));
-
+            this.resourceManager = resourceManager ?? throw new ArgumentNullException(nameof(resourceManager));
+            this.sector = sector ?? throw new ArgumentNullException(nameof(sector));
             if (index < 0 || index >= 4)
                 throw new ArgumentOutOfRangeException(nameof(index), index, "must be 0...3");
-
-            this.sector = sector;
             this.index = index;
-            this.resourceManager = resourceManager;
         }
 
 
@@ -144,19 +144,24 @@ namespace Maps
                 int qx = index % 2;
                 int qy = index / 2;
 
-                WorldCollection worlds = sector.GetWorlds(resourceManager);
+                WorldCollection? worlds = sector.GetWorlds(resourceManager);
+                if (worlds == null)
+                    yield break;
                 for (int x = 0; x < Astrometrics.SubsectorWidth * 2; ++x)
                 {
                     for (int y = 0; y < Astrometrics.SubsectorHeight * 2; ++y)
                     {
-                        World world = worlds[1 + x + Astrometrics.SubsectorWidth * 2 * qx, 1 + y + Astrometrics.SubsectorHeight * 2 * qy];
+                        World? world = worlds[1 + x + Astrometrics.SubsectorWidth * 2 * qx, 1 + y + Astrometrics.SubsectorHeight * 2 * qy];
                         if (world == null)
                             continue;
+
                         yield return world;
                     }
                 }
             }
         }
+
+        public override IEnumerable<Tuple<Sector, Route>> Routes => FilteredRoutes(sector.QuadrantBounds(index));
     }
 
     internal class RectSelector : Selector
@@ -167,18 +172,12 @@ namespace Maps
 
         public RectSelector(SectorMap.Milieu map, ResourceManager resourceManager, RectangleF rect, bool slop = true)
         {
-            if (map == null)
-                throw new ArgumentNullException(nameof(map));
-
-            if (resourceManager == null)
-                throw new ArgumentNullException(nameof(resourceManager));
-
-            this.map = map;
-            this.resourceManager = resourceManager;
+            this.map = map ?? throw new ArgumentNullException(nameof(map));
+            this.resourceManager = resourceManager ?? throw new ArgumentNullException(nameof(resourceManager));
             this.rect = rect;
 
             Slop = slop;
-            SlopFactor = 0.25f;
+            SlopFactor = 0.3f; // Arbitrary, but 0.25 not enough for some routes.
         }
 
         public override IEnumerable<Sector> Sectors
@@ -187,7 +186,9 @@ namespace Maps
             {
                 RectangleF rect = this.rect;
                 if (Slop)
+                {
                     rect.Inflate(rect.Width * SlopFactor, rect.Height * SlopFactor);
+                }
 
                 int sx1 = (int)Math.Floor((rect.Left + Astrometrics.ReferenceHex.X) / Astrometrics.SectorWidth);
                 int sx2 = (int)Math.Floor((rect.Right + Astrometrics.ReferenceHex.X) / Astrometrics.SectorWidth);
@@ -199,9 +200,10 @@ namespace Maps
                 {
                     for (int cy = sy1; cy <= sy2; cy++)
                     {
-                        Sector sector = map.FromLocation(cx, cy, UseMilieuFallbacks);
+                        Sector? sector = map.FromLocation(cx, cy, UseMilieuFallbacks);
                         if (sector == null)
                             continue;
+
                         yield return sector;
                     }
                 }
@@ -214,8 +216,10 @@ namespace Maps
             {
                 RectangleF rect = this.rect;
                 if (Slop)
+                {
                     rect.Inflate(rect.Width * SlopFactor, rect.Height * SlopFactor);
-                
+                }
+
                 int hx1 = (int)Math.Floor(rect.Left);
                 int hx2 = (int)Math.Ceiling(rect.Right);
 
@@ -223,7 +227,7 @@ namespace Maps
                 int hy2 = (int)Math.Ceiling(rect.Bottom);
 
                 Point? cachedLoc = null;
-                Sector cachedSector = null;
+                Sector? cachedSector = null;
 
                 Point coords = Point.Empty;
                 for (coords.X = hx1; coords.X <= hx2; coords.X++)
@@ -239,15 +243,21 @@ namespace Maps
                         }
 
                         if (cachedSector == null)
+                        {
                             continue;
+                        }
 
-                        WorldCollection worlds = cachedSector.GetWorlds(resourceManager);
+                        WorldCollection? worlds = cachedSector.GetWorlds(resourceManager);
                         if (worlds == null)
+                        {
                             continue;
+                        }
 
                         World world = worlds[loc.Hex];
                         if (world == null)
+                        {
                             continue;
+                        }
 
                         yield return world;
                     }
@@ -265,18 +275,11 @@ namespace Maps
 
         public HexSelector(SectorMap.Milieu map, ResourceManager resourceManager, Location location, int jump)
         {
-            if (map == null)
-                throw new ArgumentNullException(nameof(map));
-
-            if (resourceManager == null)            
-                throw new ArgumentNullException(nameof(resourceManager));
-
-            if (jump < 0 || jump > 36)            
-                throw new ArgumentOutOfRangeException(nameof(jump), jump, "must be between 0 and 36 inclusive");
-
-            this.map = map;
-            this.resourceManager = resourceManager;
+            this.map = map ?? throw new ArgumentNullException(nameof(map));
+            this.resourceManager = resourceManager ?? throw new ArgumentNullException(nameof(resourceManager));
             this.location = location;
+            if (jump < 0 || jump > 36)
+                throw new ArgumentOutOfRangeException(nameof(jump), jump, "must be between 0 and 36 inclusive");
             this.jump = jump;
         }
 
@@ -297,9 +300,10 @@ namespace Maps
                 {
                     for (int x = locTL.Sector.X; x <= locBR.Sector.X; ++x)
                     {
-                        Sector sector = map.FromLocation(x, y, UseMilieuFallbacks);
+                        Sector? sector = map.FromLocation(x, y, UseMilieuFallbacks);
                         if (sector == null)
                             continue;
+
                         yield return sector;
                     }
                 }
@@ -320,7 +324,7 @@ namespace Maps
 
                 bool cached = false;
                 Point cachedLoc = Point.Empty;
-                Sector cachedSector = null;
+                Sector? cachedSector = null;
 
                 for (int y = topLeft.Y; y <= bottomRight.Y; ++y)
                 {
@@ -340,13 +344,14 @@ namespace Maps
 
                             if (cachedSector != null)
                             {
-                                WorldCollection worlds = cachedSector.GetWorlds(resourceManager);
+                                WorldCollection? worlds = cachedSector.GetWorlds(resourceManager);
                                 if (worlds == null)
                                     continue;
 
                                 World world = worlds[loc.Hex];
                                 if (world == null)
                                     continue;
+
                                 yield return world;
                             }
 
@@ -366,14 +371,8 @@ namespace Maps
 
         public HexSectorSelector(ResourceManager resourceManager, Sector sector, Hex coords, int jump)
         {
-            if (resourceManager == null)
-                throw new ArgumentNullException(nameof(resourceManager));
-
-            if (sector == null)
-                throw new ArgumentNullException(nameof(sector));
- 
-            this.sector = sector;
-            this.resourceManager = resourceManager;
+            this.sector = sector ?? throw new ArgumentNullException(nameof(sector));
+            this.resourceManager = resourceManager ?? throw new ArgumentNullException(nameof(resourceManager));
             this.coords = coords;
             this.jump = jump;
         }

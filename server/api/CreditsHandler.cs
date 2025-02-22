@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿#nullable enable
+using Maps.Utilities;
+using System.Linq;
 using System.Web;
 using System.Xml.Serialization;
 
@@ -6,32 +8,25 @@ namespace Maps.API
 {
     internal class CreditsHandler : DataHandlerBase
     {
-        protected override string ServiceName { get { return "credits"; } }
-
-        protected override DataResponder GetResponder(HttpContext context)
-        {
-            return new Responder(context);
-        }
+        protected override DataResponder GetResponder(HttpContext context) => new Responder(context);
 
         private class Responder : DataResponder
         {
             public Responder(HttpContext context) : base(context) { }
-            public override string DefaultContentType { get { return System.Net.Mime.MediaTypeNames.Text.Xml; } }
-            public override void Process()
-            {
-                ResourceManager resourceManager = new ResourceManager(Context.Server);
+            public override string DefaultContentType => ContentTypes.Text.Xml;
 
+            public override void Process(ResourceManager resourceManager)
+            {
                 // NOTE: This (re)initializes a static data structure used for 
                 // resolving names into sector locations, so needs to be run
                 // before any other objects (e.g. Worlds) are loaded.
-                SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
+                SectorMap.Milieu map = SectorMap.ForMilieu(GetStringOption("milieu"));
                 Location loc = Location.Empty;
 
                 if (HasOption("sector"))
                 {
-                    string sectorName = GetStringOption("sector");
-                    Sector sec = map.FromName(sectorName);
-                    if (sec == null)
+                    string sectorName = GetStringOption("sector")!;
+                    Sector sec = map.FromName(sectorName) ??
                         throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
 
                     int hex = GetIntOption("hex", Astrometrics.SectorCentralHex);
@@ -45,12 +40,15 @@ namespace Maps.API
                 if (loc.Hex.IsEmpty)
                     loc.Hex = Astrometrics.SectorCenter;
 
-                Sector sector = map.FromLocation(loc.Sector.X, loc.Sector.Y);
+                Sector? sector = map.FromLocation(loc.Sector.X, loc.Sector.Y);
 
                 var data = new Results.CreditsResult();
 
                 if (sector != null)
                 {
+                    data.SectorX = sector.X;
+                    data.SectorY = sector.Y;
+
                     // TODO: Multiple names
                     foreach (var name in sector.Names.Take(1))
                         data.SectorName = name.Text;
@@ -111,7 +109,7 @@ namespace Maps.API
                     //
                     // World Data
                     // 
-                    WorldCollection worlds = sector.GetWorlds(resourceManager);
+                    WorldCollection? worlds = sector.GetWorlds(resourceManager);
                     if (worlds != null)
                     {
                         World world = worlds[loc.Hex];
@@ -125,12 +123,12 @@ namespace Maps.API
                             data.WorldEx = world.Economic;
                             data.WorldCx = world.Cultural;
                             data.WorldPbg = world.PBG;
-                            data.WorldAllegiance = sector.GetAllegianceFromCode(world.Allegiance).T5Code;
+                            data.WorldAllegiance = sector.GetAllegianceFromCode(world.Allegiance)?.T5Code ?? "";
                         }
                     }
                 }
 
-                SendResult(Context, data);
+                SendResult(data);
             }
         }
     }
@@ -138,12 +136,15 @@ namespace Maps.API
 
 namespace Maps.API.Results
 {
+#nullable disable
     [XmlRoot(ElementName = "Data")]
     // public for XML serialization
     public class CreditsResult
     {
         public string Credits { get; set; }
 
+        public int SectorX { get; set; }
+        public int SectorY { get; set; }
         public string SectorName { get; set; }
         public string SectorAuthor { get; set; }
         public string SectorSource { get; set; }
@@ -176,4 +177,5 @@ namespace Maps.API.Results
         public string ProductAuthor { get; set; }
         public string ProductRef { get; set; }
     }
+#nullable restore
 }

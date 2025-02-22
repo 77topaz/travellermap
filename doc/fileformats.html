@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <title>Sector Data File Formats - Traveller Map</title>
 <meta charset="utf-8">
-<link rel="shortcut icon" href="../favicon.ico">
+<link rel="shortcut icon" href="../favicon.svg">
 <link rel="stylesheet" href="../site.css">
 <meta name="viewport" content="initial-scale=1, width=device-width">
-<script src="https://cdn.rawgit.com/inexorabletash/polyfill/v0.1.29/polyfill.min.js"></script>
 
 <style>
 table.format { margin-left: -0.75in; }
@@ -71,6 +70,10 @@ File Format</a> for more details.
 
 <section id="trader">
 <h2>TRADER Format</h2>
+
+<p class=highlight>
+    NOTE: This format is documented for posterity; it is not supported by the site's tools.
+</p>
 
 <p>
 The original electronic format for sector data was defined
@@ -243,7 +246,7 @@ data published in GDW's <cite>The Spinward Marches Campaign</cite>.
 Joe Fugate of Digest Group Publications generated data for the
 Imperium and several surrounding sectors, 35 in total. This data was
 made available to the public by uploading to the
-<a target="_blank" href="https://en.wikipedia.org/wiki/GEnie">GEnie</a> information
+<a target=_blank rel=noopener href="https://en.wikipedia.org/wiki/GEnie">GEnie</a> information
 service. It was later hosted on an FTP file server named "Sunbane".
 This dataset is often referred to as "GENII" <i>(sic)</i> or most commonly
 "the Sunbane data".
@@ -695,18 +698,21 @@ take more than one byte, but most of Earth's writing systems can be
 represented using <a href="http://unicode.org">Unicode</a>.
 
 This is a line-oriented, plain text,
-<a href="http://en.wikipedia.org/wiki/Tab-separated_values">tab-delimited</a> format.
+<a href="https://en.wikipedia.org/wiki/Tab-separated_values">tab-delimited</a> format.
 
 Lines in the file are terminated with either LF (U+000A) or CR+LF (U+000D, U+000A).
 
 Every line in the file has fields separated by the Tab character
 (U+0009). There is no escaping mechanism &ndash; neither tabs nor line
-breaking characters may occur within fields. Comments are not supported.
-Blank lines should be ignored.
+breaking characters may occur within fields.
 </p>
 
 <p>
-The first line in the file is the <dfn>header</dfn>; it is tab-delimited
+Blank lines are ignored. Lines starting with <code>#</code> (U+0023) are ignored.
+</p>
+
+<p>
+The first non-blank/non-comment line in the file is the <dfn>header</dfn>; it is tab-delimited
 and defines the fields. The fields do not appear in a fixed order.
 Parsers should read the header line and use it to construct a
 field index to field name mapping for use with the rest of the file.
@@ -750,6 +756,10 @@ These commonly include:
 <section id="t5col">
 <h2>T5 Column Delimited Format</h2>
 
+<p class=highlight>
+  NOTE: If not explicitly specified by request headers, the site's tools only auto-detect this format if the <code>{Ix}</code>, <code>(Ex)</code> and <code>[Cx]</code> headers are present. Otherwise another format will be inferred. Include those fields in the header (even if the content is blank) to use this format.
+</p>
+
 <p>
 Although the tab-delimited format is the most convenient for interchange
 it is difficult for humans to read. This document establishes an extensible,
@@ -762,11 +772,19 @@ The format utilizes the UTF-8 encoding. Therefore, each character may
 take more than one byte, but most of Earth's writing systems can be
 represented using <a href="http://unicode.org">Unicode</a>.
 This is a variable-width, line-oriented format. Fields are fixed
-width, separated by one space, left aligned and padded by spaces.
+width, separated by at least one space, left aligned and padded by spaces.
 Lines in the file are terminated with either LF
 (U+000A) or CR+LF (U+000D, U+000A).
 There is no escaping mechanism  &ndash; neither tabs nor
 line breaking characters may occur within fields.
+</p>
+
+<p>
+NOTE: At this time, Unicode code points beyond U+FFFF are not
+correctly supported by the site. This is because the underlying
+implementation internally uses .NET's UTF-16 representation for
+strings, and characters beyond U+FFFF encode into two UTF-16 code
+units, which mean column counts will be incorrect.
 </p>
 
 <p>
@@ -780,7 +798,7 @@ the field names. The header line is composed of field
 names padded by spaces. The header line is followed by a
 <dfn>separator line</dfn> which defines the field widths.
 The separator line is composed of runs of <code>-</code> (U+002D)
-characters separated by space characters (U+0020).
+characters separated by one or more space characters (U+0020).
 To parse the file, the header line should be saved, then the
 separator line parsed to determine field widths and offsets.
 The header line can then be parsed to determine field names.
@@ -788,6 +806,12 @@ The fields do not appear in a fixed order; after parsing
 the separator line and the header line, a field index to field
 name mapping can be constructed to use for parsing the rest of
 the file.
+</p>
+
+<p>
+Leading and trailing spaces on the separator line are permitted.
+Non-space characters that appear in any line between fields
+result in a parse error.
 </p>
 
 <p>
@@ -1133,10 +1157,8 @@ Hex, Name, UWP, Remarks, Ix, Ex, Cx, N, B, Z, PBG, W, A, Stellar.
 
 <div class="editorial">
   <p>
-    The <em class="product">Traveller</em> game in all forms is owned by Far
-Future Enterprises. Copyright &copy; 1977 &ndash; 2017 Far Future
-Enterprises.
-    <a href="http://farfuture.net/FFEFairUsePolicy2008.pdf">Fair Use Policy</a>
+    The <em class="product">Traveller</em> game in all forms is owned by Mongoose Publishing. Copyright 1977 &ndash; 2024 Mongoose Publishing.
+    <a href="https://cdn.shopify.com/s/files/1/0609/6139/0839/files/Traveller_Fair_Use_Policy_2024.pdf?v=1725357857">Fair Use Policy</a>
 </div>
 
 <script src="toc.js"></script>

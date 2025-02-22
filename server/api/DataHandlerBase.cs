@@ -1,16 +1,18 @@
-﻿#define LEGACY_STYLES
+﻿#nullable enable
+#define LEGACY_STYLES
 
 using Json;
 using Maps.Rendering;
+using Maps.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net.Mime;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Web;
 using System.Web.Routing;
 using System.Xml.Serialization;
@@ -25,10 +27,7 @@ namespace Maps.API
 
     internal abstract class DataHandlerBase : HandlerBase, IHttpHandler
     {
-        protected abstract string ServiceName { get; }
-
-        public bool IsReusable { get { return true; } }
-
+        public bool IsReusable => true;
         public void ProcessRequest(HttpContext context)
         {
             if (context == null)
@@ -54,7 +53,7 @@ namespace Maps.API
 
             try
             {
-                GetResponder(context).Process();
+                GetResponder(context).Process(ResourceManager.GetInstance());
             }
             catch (HttpError error)
             {
@@ -91,23 +90,20 @@ namespace Maps.API
 
             public abstract string DefaultContentType { get; }
 
-            public HttpContext Context { get; private set; }
+            public HttpContext Context { get; }
 
-            public abstract void Process();
+            public abstract void Process(ResourceManager resourceManager);
 
             #region Response Methods
-            protected void SendResult(HttpContext context, object o, Encoding encoding = null)
+            protected void SendResult(object o, Encoding? encoding = null)
             {
                 SendResult(this, o, encoding);
             }
 
-            private static readonly Regex simpleJSIdentifierRegex = new Regex(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
-            public static bool IsSimpleJSIdentifier(string s)
-            {
-                return simpleJSIdentifierRegex.IsMatch(s);
-            }
+            private static readonly Regex SIMPLE_JS_IDENTIFIER_REGEX = new Regex(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
+            public static bool IsSimpleJSIdentifier(string s) => SIMPLE_JS_IDENTIFIER_REGEX.IsMatch(s);
 
-            public void SendResult(ITypeAccepter accepter, object o, Encoding encoding = null)
+            public void SendResult(ITypeAccepter accepter, object o, Encoding? encoding = null)
             {
                 // Vary: * is basically ignored by browsers
                 Context.Response.Cache.SetOmitVaryStar(true);
@@ -129,7 +125,7 @@ namespace Maps.API
                         SendJson(o);
                         return;
                     }
-                    if (type == MediaTypeNames.Text.Xml)
+                    if (type == ContentTypes.Text.Xml)
                     {
                         SendXml(o);
                         return;
@@ -140,14 +136,13 @@ namespace Maps.API
 
             public void SendXml(object o)
             {
-                Context.Response.ContentType = MediaTypeNames.Text.Xml;
-                XmlSerializer xs = new XmlSerializer(o.GetType());
-                xs.Serialize(Context.Response.OutputStream, o);
+                Context.Response.ContentType = ContentTypes.Text.Xml;
+                new XmlSerializer(o.GetType()).Serialize(Context.Response.OutputStream, o);
             }
 
-            public void SendText(object o, Encoding encoding = null)
+            public void SendText(object o, Encoding? encoding = null)
             {
-                Context.Response.ContentType = MediaTypeNames.Text.Plain;
+                Context.Response.ContentType = ContentTypes.Text.Plain;
                 if (encoding == null)
                 {
                     Context.Response.Output.Write(o.ToString());
@@ -167,15 +162,18 @@ namespace Maps.API
                 SendPostamble(contentType);
             }
 
+            public bool CheckFile(string filename)
+            {
+                return File.Exists(Context.Server.MapPath(filename));
+            }
+
             public void SendJson(object o)
             {
                 Context.Response.ContentType = JsonConstants.MediaType;
 
-                JsonSerializer js = new JsonSerializer();
-
                 // TODO: Subclass this from a DataResponsePage
                 SendPreamble(JsonConstants.MediaType);
-                js.Serialize(Context.Response.OutputStream, o);
+                new JsonSerializer().Serialize(Context.Response.OutputStream, o);
                 SendPostamble(JsonConstants.MediaType);
             }
 
@@ -183,12 +181,12 @@ namespace Maps.API
             {
                 if (contentType == JsonConstants.MediaType && Context.Request.QueryString["jsonp"] != null)
                 {
-                    using (var w = new StreamWriter(Context.Response.OutputStream))
-                    {
-                        // TODO: Ensure jsonp is just an identifier
-                        w.Write(Context.Request.QueryString["jsonp"]);
-                        w.Write("(");
-                    }
+                    if (!IsSimpleJSIdentifier(Context.Request.QueryString["jsonp"]))
+                        throw new HttpError(400, "Bad Request", "The jsonp parameter must be a simple script identifier.");
+
+                    using var w = new StreamWriter(Context.Response.OutputStream);
+                    w.Write(Context.Request.QueryString["jsonp"]);
+                    w.Write("(");
                 }
             }
 
@@ -196,29 +194,22 @@ namespace Maps.API
             {
                 if (contentType == JsonConstants.MediaType && Context.Request.QueryString["jsonp"] != null)
                 {
-                    using (var w = new StreamWriter(Context.Response.OutputStream))
-                    {
-                        w.Write(");");
-                    }
+                    using var w = new StreamWriter(Context.Response.OutputStream);
+                    w.Write(");");
                 }
             }
             #endregion
 
             #region Option Parsing
-            protected bool HasOption(string name)
-            {
-                return HasOption(name, Defaults(Context));
-            }
-            public bool HasOption(string name, IDictionary<string, object> queryDefaults)
-            {
-                return Context.Request[name] != null || (queryDefaults != null && queryDefaults.ContainsKey(name));
-            }
+            protected bool HasOption(string name) => HasOption(name, Defaults(Context));
 
-            protected string GetStringOption(string name, string defaultValue = null)
-            {
-                return GetStringOption(name, Defaults(Context), defaultValue);
-            }
-            public string GetStringOption(string name, IDictionary<string, object> queryDefaults, string defaultValue = null)
+            public bool HasOption(string name, IDictionary<string, object> queryDefaults)
+                => Context.Request[name] != null || (queryDefaults != null && queryDefaults.ContainsKey(name));
+
+            protected string? GetStringOption(string name, string? defaultValue = null)
+                => GetStringOption(name, Defaults(Context), defaultValue);
+
+            public string? GetStringOption(string name, IDictionary<string, object> queryDefaults, string? defaultValue = null)
             {
                 if (Context.Request[name] != null)
                     return Context.Request[name];
@@ -227,56 +218,42 @@ namespace Maps.API
                 return defaultValue;
             }
 
-            protected string[] GetStringsOption(string name, string[] defaultValue = null)
+            protected string[]? GetStringsOption(string name, string[]? defaultValue = null)
             {
-                string s = GetStringOption(name);
+                string? s = GetStringOption(name);
                 if (string.IsNullOrWhiteSpace(s))
                     return defaultValue;
-                return s.Split(new char[] { '|' });
+                return s!.Split('|');
             }
 
-            protected int GetIntOption(string name, int defaultValue)
-            {
-                return GetIntOption(name, Defaults(Context), defaultValue);
-            }
+            protected int GetIntOption(string name, int defaultValue) => GetIntOption(name, Defaults(Context), defaultValue);
+
             public int GetIntOption(string name, IDictionary<string, object> queryDefaults, int defaultValue)
             {
-                double temp;
-                if (double.TryParse(GetStringOption(name, queryDefaults), NumberStyles.Float, CultureInfo.InvariantCulture, out temp))
+                if (double.TryParse(GetStringOption(name, queryDefaults), NumberStyles.Float, CultureInfo.InvariantCulture, out double temp))
                     return (int)Math.Round(temp);
                 return defaultValue;
             }
 
-            protected double GetDoubleOption(string name, double defaultValue)
-            {
-                return GetDoubleOption(name, Defaults(Context), defaultValue);
-            }
+            protected double GetDoubleOption(string name, double defaultValue) => GetDoubleOption(name, Defaults(Context), defaultValue);
+
             public double GetDoubleOption(string name, IDictionary<string, object> queryDefaults, double defaultValue)
             {
-                double temp;
-                if (double.TryParse(GetStringOption(name, queryDefaults), NumberStyles.Float, CultureInfo.InvariantCulture, out temp))
+                if (double.TryParse(GetStringOption(name, queryDefaults), NumberStyles.Float, CultureInfo.InvariantCulture, out double temp))
                     return temp;
                 return defaultValue;
             }
 
-            protected bool GetBoolOption(string name, bool defaultValue)
-            {
-                return GetBoolOption(name, Defaults(Context), defaultValue);
-            }
+            protected bool GetBoolOption(string name, bool defaultValue) => GetBoolOption(name, Defaults(Context), defaultValue);
 
             public bool GetBoolOption(string name, IDictionary<string, object> queryDefaults, bool defaultValue)
             {
-                int temp;
-                if (int.TryParse(GetStringOption(name, queryDefaults), NumberStyles.Integer, CultureInfo.InvariantCulture, out temp))
+                if (int.TryParse(GetStringOption(name, queryDefaults), NumberStyles.Integer, CultureInfo.InvariantCulture, out int temp))
                     return temp != 0;
                 return defaultValue;
             }
 
-            public bool HasLocation()
-            {
-                return (HasOption("sx") && HasOption("sy")) ||
-                       (HasOption("x") && HasOption("y"));
-            }
+            public bool HasLocation() => (HasOption("sx") && HasOption("sy")) || (HasOption("x") && HasOption("y"));
 
             public Location GetLocation()
             {
@@ -292,38 +269,41 @@ namespace Maps.API
                 throw new ArgumentException("Context is missing required parameters", nameof(Context));
             }
 
-            protected void ParseOptions(ref MapOptions options, ref Stylesheet.Style style)
+            protected void ParseOptions(ref MapOptions options, ref Style style)
             {
                 ParseOptions(Context.Request, Defaults(Context), ref options, ref style);
             }
 
-            private static readonly IReadOnlyDictionary<string, Stylesheet.Style> s_nameToStyle = new Dictionary<string, Stylesheet.Style> {
-                { "poster",Stylesheet.Style.Poster },
-                { "atlas" ,Stylesheet.Style.Atlas },
-                { "print" , Stylesheet.Style.Print },
-                { "candy" ,Stylesheet.Style.Candy },
-                { "draft" ,Stylesheet.Style.Draft },
-                { "fasa"  ,Stylesheet.Style.FASA },
-            };
+            private static ThreadLocal<IReadOnlyDictionary<string, Style>> s_nameToStyle = new ThreadLocal<IReadOnlyDictionary<string, Style>>(() =>
+                new Dictionary<string, Style> {
+                { "poster", Style.Poster },
+                { "atlas" , Style.Atlas },
+                { "print" , Style.Print },
+                { "candy" , Style.Candy },
+                { "draft" , Style.Draft },
+                { "fasa"  , Style.FASA },
+                { "terminal", Style.Terminal },
+                { "mongoose", Style.Mongoose },
+                });
 
-            public void ParseOptions(HttpRequest request, IDictionary<string, object> queryDefaults, ref MapOptions options, ref Stylesheet.Style style)
+            public void ParseOptions(HttpRequest request, IDictionary<string, object> queryDefaults, ref MapOptions options, ref Style style)
             {
                 options = (MapOptions)GetIntOption("options", queryDefaults, (int)options);
 
 #if LEGACY_STYLES
-            // Handle deprecated/legacy options bits for selecting style
-            style =
-                (options & MapOptions.StyleMaskDeprecated) == MapOptions.PrintStyleDeprecated ? Stylesheet.Style.Atlas :
-                (options & MapOptions.StyleMaskDeprecated) == MapOptions.CandyStyleDeprecated ? Stylesheet.Style.Candy :
-                Stylesheet.Style.Poster;
+                // Handle deprecated/legacy options bits for selecting style
+                style =
+                (options & MapOptions.StyleMaskDeprecated) == MapOptions.PrintStyleDeprecated ? Style.Atlas :
+                (options & MapOptions.StyleMaskDeprecated) == MapOptions.CandyStyleDeprecated ? Style.Candy :
+                Style.Poster;
 #endif // LEGACY_STYLES
 
                 if (HasOption("style", queryDefaults))
                 {
-                    string opt = GetStringOption("style", queryDefaults).ToLowerInvariant();
-                    if (!s_nameToStyle.ContainsKey(opt))
+                    string opt = GetStringOption("style", queryDefaults)!.ToLowerInvariant();
+                    if (!s_nameToStyle.Value.ContainsKey(opt))
                         throw new HttpError(400, "Bad Request", $"Invalid style option: {opt}");
-                    style = s_nameToStyle[opt];
+                    style = s_nameToStyle.Value[opt];
                 }
             }
 
@@ -332,16 +312,14 @@ namespace Maps.API
             #region ITypeAccepter
             // ITypeAccepter
             public bool Accepts(HttpContext context, string mediaType, bool ignoreHeaderFallbacks = false)
-            {
-                return AcceptTypes(context, ignoreHeaderFallbacks).Contains(mediaType);
-            }
+                => AcceptTypes(context, ignoreHeaderFallbacks).Contains(mediaType);
 
             // ITypeAccepter
             public IEnumerable<string> AcceptTypes(HttpContext context, bool ignoreHeaderFallbacks = false)
             {
-                IDictionary<string, object> queryDefaults = null;
+                IDictionary<string, object>? queryDefaults = null;
                 if (context.Items.Contains("RouteData"))
-                    queryDefaults = (context.Items["RouteData"] as RouteData).Values;
+                    queryDefaults = (context.Items["RouteData"] as RouteData)!.Values;
 
                 if (context.Request["accept"] != null)
                     yield return context.Request["accept"].Replace(' ', '+'); // Hack to allow "image/svg+xml" w/o escaping

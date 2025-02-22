@@ -1,9 +1,10 @@
+/*global Restellarator, Request*/
 'use strict';
 
 const EHEX = '0123456789ABCDEFGHJKLMNPQRSTUV';
 function fromEHex(c) { return EHEX.indexOf(c); }
 function toEHex(n) { return EHEX.substr(n, 1); }
-
+function toSInt(n) { return n < 0 ? String(n) : '+' + String(n); }
 function roll1D() { return Math.floor(Math.random() * 6) + 1; }
 function roll2D() { return roll1D() + roll1D(); }
 function roll1D10() { return Math.floor(Math.random() * 10) + 1; }
@@ -16,13 +17,13 @@ Number.prototype.in = function(min, max) {
 };
 
 function parse(text) {
-  const lines = text.split(/\r\n|\r|\n/);
+  const lines = text.split(/\r\n|\r|\n/).filter(s => s.length > 0);
   const header = lines.shift().split('\t');
   const worlds = lines.map(line => {
     const world = {};
     const cols = line.split('\t');
     cols.forEach((value, index) => {
-      world[header[index]] = value;
+      world[header[index]] = value === '-' ? '' : value;
     });
     return world;
   });
@@ -48,71 +49,89 @@ function process(world) {
           .map(c => c === 'Cr' ? 'Cx' : c);
   const codeSet = new Set(codes);
 
+  if (world.Pop === 0)
+    world.Gov = world.Law = world.PMult = 0;
+
+  // Correct over-abundance of Dieback worlds
+  if (world.Pop === 0 && world.TL > 0 && roll2D() > 2)
+    world.TL = 0;
+
+  world.UWP = `${world.St}${toEHex(world.Siz)}${toEHex(world.Atm)}${toEHex(world.Hyd)}${toEHex(world.Pop)}${toEHex(world.Gov)}${toEHex(world.Law)}-${toEHex(world.TL)}`;
+  world.PBG = `${toEHex(world.PMult)}${toEHex(world.Belts)}${toEHex(world.GG)}`;
+
   // Planetary
   world.As = world.Siz === 0;
   world.De = world.Atm.in(2, 9) && world.Hyd === 0;
   world.Fl = world.Atm.in(10, 12) && world.Hyd.in(1, 10);
   world.Ga = world.Siz.in(6, 8) && world.Atm.in([5, 6, 8]) && world.Hyd.in(5, 7);
-  world.He = world.Siz.in([3, 4, 5, 9, 10, 11, 12])
+  world.He = world.Siz.in([3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
     && world.Atm.in([2, 4, 7, 9, 10, 11, 12]) && world.Hyd.in(0, 2);
   world.Ic = world.Atm.in(0, 1) && world.Hyd.in(1, 10);
-  world.Oc = world.Siz.in(10, 12) && world.Hyd === 10;
+  world.Oc = world.Siz.in(10, 15) && world.Atm.in(3,9) && world.Hyd === 10;
   world.Va = world.Atm === 0;
-  world.Wa = world.Siz.in(5, 9) && world.Hyd === 10;
+  world.Wa = world.Siz.in(3, 9) && world.Atm.in(3,9) && world.Hyd === 10;
 
-  ['As', 'De', 'Fl', 'Ga', 'He', 'Ic', 'Oc', 'Va', 'Wa'].forEach(c => {
+  const PLANETARY_CODES = ['As', 'De', 'Fl', 'Ga', 'He', 'Ic', 'Oc', 'Va', 'Wa'];
+  PLANETARY_CODES.forEach(c => {
     codeSet.delete(c);
   });
-
 
   // Population
   world.Di = world.Pop === 0 && world.Gov === 0 && world.Law === 0 && world.TL > 0;
   world.Ba = world.Pop === 0 && world.Gov === 0 && world.Law === 0 && world.TL === 0;
   world.Lo = world.Pop.in(1, 3);
   world.Ni = world.Pop.in(4, 6);
-  world.Ph = world.Pop.in === 8;
+  world.Ph = world.Pop === 8;
   world.Hi = world.Pop.in(9, 12);
 
-  ['Di', 'Ba', 'Lo', 'Ni', 'Ph', 'Hi'].forEach(c => {
+  const POPULATION_CODES = ['Di', 'Ba', 'Lo', 'Ni', 'Ph', 'Hi'];
+  POPULATION_CODES.forEach(c => {
     codeSet.delete(c);
   });
-
 
   // Economic
   world.Pa = world.Atm.in(4, 9) && world.Hyd.in(4, 8) && world.Pop.in([4,8]);
   world.Ag = world.Atm.in(4, 9) && world.Hyd.in(4, 8) && world.Pop.in(5, 7);
   world.Na = world.Atm.in(0, 3) && world.Hyd.in(0, 3) && world.Pop.in(6, 12);
   world.Pi = world.Atm.in([0,1,2,4,7,9]) && world.Pop.in(7, 8);
-  world.In = world.Atm.in([0,1,2,4,7,9]) && world.Pop.in(9, 12);
+  world.In = world.Atm.in([0,1,2,4,7,9,10,11,12]) && world.Pop.in(9, 15);
   world.Po = world.Atm.in(2, 5) && world.Hyd.in(0, 3);
   world.Pr = world.Atm.in([6,8]) && world.Pop.in([5,9]);
   world.Ri = world.Atm.in([6,8]) && world.Pop.in(6, 8);
 
-  ['Pa', 'Ag', 'Na', 'Pi', 'In', 'Po', 'Pr', 'Ri'].forEach(c => {
+  const ECONOMIC_CODES = ['Pa', 'Ag', 'Na', 'Pi', 'In', 'Po', 'Pr', 'Ri'];
+  ECONOMIC_CODES.forEach(c => {
     codeSet.delete(c);
   });
 
-
   // Climate
-  ['Fr', 'Ho', 'Co', 'Lk', 'Tr', 'Tu', 'Tz'].forEach(c => {
+  const CLIMATE_CODES = ['Fr', 'Ho', 'Co', 'Lk', 'Tr', 'Tu', 'Tz'];
+  CLIMATE_CODES.forEach(c => {
     world[c] = codes.includes(c);
     if (world[c]) codeSet.delete(c);
   });
 
   // Secondary
-  ['Fa', 'Mi', 'Mr', 'Px', 'Pe', 'Re'].forEach(c => {
+  const SECONDARY_CODES = ['Fa', 'Mi', 'Mr', 'Px', 'Pe', 'Re'];
+  SECONDARY_CODES.forEach(c => {
     world[c] = codes.includes(c);
     if (world[c]) codeSet.delete(c);
   });
 
   // Political
-  ['Cp', 'Cs', 'Cx', 'Cy'].forEach(c => {
+  const POLITICAL_CODES = ['Cp', 'Cs', 'Cx', 'Cy'];
+  POLITICAL_CODES.forEach(c => {
     world[c] = codes.includes(c);
     if (world[c]) codeSet.delete(c);
   });
 
   // Special
-  ['Sa', 'Fo', 'Pz', 'Da', 'Ab', 'An'].forEach(c => {
+  const SPECIAL_CODES = ['Fo', 'Pz', 'Da'];
+  SPECIAL_CODES.forEach(c => {
+    codeSet.delete(c);
+  });
+  const ADDITIONAL_CODES = ['Sa', 'Ab', 'An'];
+  ADDITIONAL_CODES.forEach(c => {
     world[c] = codes.includes(c);
     if (world[c]) codeSet.delete(c);
   });
@@ -120,7 +139,7 @@ function process(world) {
   world.Sophonts = codes.filter(
     c =>
       /^....[0-9W]$/.test(c) ||
-      /^\(.*\)[0-9W]?$/.test(c)
+      /^(Di)?\(.*\)[0-9W]?$/.test(c)
   ).map(c => {
     codeSet.delete(c);
     return c;
@@ -132,15 +151,13 @@ function process(world) {
   ).map(c => {
     codeSet.delete(c);
     return c;
-  }).join(' ');
-  [
+  }).concat([
     'Fr', 'Ho', 'Co', 'Lk', 'Tr', 'Tu', 'Tz',
     'Fa', 'Mi', 'Mr', 'Px', 'Pe', 'Re',
-    'Sa', 'Fo', 'Pz', 'Da', 'Ab'
+    'Sa', 'Ab'
     // NOTE: Not An
-  ].forEach(c => {
-    if (world[c]) world.Details += ' ' + c;
-  });
+  ].filter(c => world[c]))
+    .join(' ');
 
   // Stellar configuration - just remove
   codes.filter(c => /^S[0-9A-F]+/.test(c)).forEach(c => {
@@ -150,16 +167,67 @@ function process(world) {
   // Report unmatched codes
   if (codeSet.size)
     console.warn(`Unmatched codes (${world.Hex}): ` + Array.from(codeSet).map(s=>JSON.stringify(s)).join(' '));
+
+
+  world.Remarks = ([]
+                   .concat(PLANETARY_CODES,POPULATION_CODES,ECONOMIC_CODES)
+                   .map(code => world[code] ? code : '')
+                   .join(' ')
+                   + ' ' + world.Sophonts
+                   + ' ' + world.Details).trim().replace(/\s{2,}/g, ' ');
 }
 
 function t5ify(world) {
+  // Allegiance Fixups
+  world.Allegiance = ({
+    'Ga': '3EoG',
+    'Jm': 'JMen',
+    'JP': 'JuPr',
+    'VN': 'VDrN',
+    'VQ': 'VYoe',
+    'VT': 'VTrA',
+    'Zc': 'CsZh',
+    'Zh': 'ZhMe'
+  })[world.Allegiance] || world.Allegiance;
+
+  // Derived from:
+  // Hlakhoi Ealiyasiyw Staihaia'yo Iwahfuah Riftspan Reaches
+  const NA_TABLE = [
+    {freq: 29, entry: 'NaAs'},
+    {freq:  2, entry: 'NaXX'}
+  ];
+  const AS_TABLE = [
+    {freq: 274, entry: 'AsSc'},
+    {freq: 274, entry: 'AsMw'},
+    {freq: 204, entry: 'AsTv'},
+    {freq: 195, entry: 'AsVc'},
+    {freq: 156, entry: 'AsWc'},
+    {freq:  76, entry: 'AsT9'},
+    {freq:  70, entry: 'AsT1'},
+    {freq:  68, entry: 'AsT0'},
+    {freq:  64, entry: 'AsT6'},
+    {freq:  60, entry: 'AsT4'},
+    {freq:  56, entry: 'AsT8'},
+    {freq:  56, entry: 'AsT3'},
+    {freq:  53, entry: 'AsT2'},
+    {freq:  48, entry: 'AsT5'},
+    {freq:  45, entry: 'AsT7'},
+    {freq:  26, entry: 'AsXX'},
+    {freq:  10, entry: 'AsTz'}
+  ];
+  if (world.Allegiance === 'Na') world.Allegiance = world.Pop === 0 ? 'NaXX' : pickFromFrequencyTable(NA_TABLE);
+  if (world.Allegiance === 'As') world.Allegiance = pickFromFrequencyTable(AS_TABLE);
+
+  if (/^As/.test(world.Allegiance) && /[NS]/.test(world.Bases)) {
+    world.Bases = /^AsT/.test(world.Allegiance) ? 'T' : 'R';
+  }
 
   // Importance Extension
   world.Importance = 0 +
     (world.St === 'A' || world.St === 'B' ? 1 : 0) +
     (world.St === 'D' || world.St === 'E' || world.St === 'X' ? -1 : 0) +
     (world.TL >= 10 ? 1 : 0) +
-    //(world.TL >= 16 ? 1 : 0) +
+    (world.TL >= 16 ? 1 : 0) +
     (world.TL <= 8 ? -1 : 0) +
     (world.Pop <= 6 ? -1 : 0) +
     (world.Pop >= 9 ? 1 : 0) +
@@ -167,56 +235,70 @@ function t5ify(world) {
     (world.Ri ? 1 : 0) +
     (world.In ? 1 : 0) +
     (world.Bases === 'NS' || world.Bases === 'NW' || world.Bases === 'W' ||
-      world.Bases === 'X' || world.Bases === 'D' || world.Bases === 'RT' ||
-       world.Bases === 'CK' || world.Bases === 'KM' ? 1 : 0);
+     world.Bases === 'X' || world.Bases === 'D' || world.Bases === 'RT' ||
+     world.Bases === 'CK' || world.Bases === 'KM' ? 1 : 0);
+  world._Ix_ = `{ ${world.Importance} }`;
 
   // Economics Extension
-  world.Resources =
-    Math.max(0,
-             roll2D() + (world.TL >= 8 ? world.GG + world.Belts : 0));
-  world.Labor =
-    Math.max(0,
-             world.Pop - 1);
-  world.Infrastructure =
-    Math.max(0,
-             world.Ba/* || world.Di*/ ? 0 : // Per Errata "Di should not impact Infrastructure"
-             world.Lo ? 1 :
-             world.Ni ? roll1D()  + world.Importance:
-             roll2D() + world.Importance);
-  world.Efficiency = flux();
+  if (world['(Ex)'] && world['(Ex)'] !== '(000+1)') {
+    var ex = world['(Ex)'];
+    world.Resources = fromEHex(ex.substr(1, 1));
+    world.Labor = fromEHex(ex.substr(2, 1));
+    world.Infrastructure = fromEHex(ex.substr(3, 1));
+    world.Efficiency = parseFloat(ex.substr(4, 2));
+  } else {
+    world.Resources =
+      Math.max(0,
+               roll2D() + (world.TL >= 8 ? world.GG + world.Belts : 0));
+    world.Labor =
+      Math.max(0,
+               world.Pop - 1);
+    world.Infrastructure =
+      Math.max(0,
+               world.Ba/* || world.Di*/ ? 0 : // Per Errata "Di should not impact Infrastructure"
+               world.Lo ? 1 :
+               world.Ni ? roll1D()  + world.Importance:
+               roll2D() + world.Importance);
+    world.Efficiency = flux();
+  }
+  world._Ex_ = `(${toEHex(world.Resources)}${toEHex(world.Labor)}${toEHex(world.Infrastructure)}${toSInt(world.Efficiency)})`;
 
   // Cultural Extension
-  world.Homogeneity = world.Pop === 0 ? 0 : Math.max(1, world.Pop + flux());
-  world.Acceptance = world.Pop === 0 ? 0 : Math.max(1, world.Pop + world.Importance);
-  world.Strangeness = world.Pop === 0 ? 0 : Math.max(1, flux() + 5);
-  world.Symbols = world.Pop === 0 ? 0 : Math.max(1, world.TL + flux());
+  if (world['[Cx]'] && world['[Cx]'] !== '[0000]') {
+    var cx = world['[Cx]'];
+    world.Heterogeneity = fromEHex(cx.substr(1, 1));
+    world.Acceptance = fromEHex(cx.substr(2, 1));
+    world.Strangeness = fromEHex(cx.substr(3, 1));
+    world.Symbols = fromEHex(cx.substr(4, 1));
+  } else if (world.Pop === 0) {
+    world.Heterogeneity = 0;
+    world.Acceptance = 0;
+    world.Strangeness = 0;
+    world.Symbols = 0;
+  } else {
+    world.Heterogeneity = world.Pop === 0 ? 0 : Math.max(1, world.Pop + flux());
+    world.Acceptance = world.Pop === 0 ? 0 : Math.max(1, world.Pop + world.Importance);
+    world.Strangeness = world.Pop === 0 ? 0 : Math.max(1, flux() + 5);
+    world.Symbols = world.Pop === 0 ? 0 : Math.max(1, world.TL + flux());
+  }
+  world._Cx_ = `[${toEHex(world.Heterogeneity)}${toEHex(world.Acceptance)}${toEHex(world.Strangeness)}${toEHex(world.Symbols)}]`;
 
   // Worlds
-  world.Worlds = 1/*MW*/ + world.GG + world.Belts + roll2D();
+  world.Worlds = world.Worlds || world.W || (1/*MW*/ + world.GG + world.Belts + roll2D());
 
-  // Allegiance Fixups
-  /*
-  if (world.Allegiance === 'Zh')
-    world.Allegiance = 'ZhJp';
-  else if (world.Allegiance === 'Ax')
-    world.Allegiance = 'ZhAx';
-  else if (world.Allegiance === 'Dr') {
-    world.Allegiance = 'ZhJp';
-    world.Sophonts += 'DroyW ';
-  }*/
-  world.Allegiance = ({
-    'Ga': '3EoG',
-    'Jm': 'JMen',
-    'Na': 'NaHu',
-    'JP': 'JuPr',
+  world.Stars = Restellarator.fix(world.Stars) || Restellarator.generate();
+}
 
-    // TODO: Add to docs
-    'VN': 'VDrN',
-    'VQ': 'VYoe',
-    'VT': 'VTrA'
-  })[world.Allegiance] || world.Allegiance;
-
-  world.Stars = world.Stars || generateStars();
+function pickFromFrequencyTable(table) {
+  const sum = table.reduce((sum, entry) => sum + entry.freq, 0);
+  let n = Math.floor(Math.random() * sum);
+  for (let i = 0; i < table.length; ++i) {
+    const row = table[i];
+      if (n < row.freq)
+        return row.entry;
+    n -= row.freq;
+  }
+  throw new Error("Logic bug");
 }
 
 function format(world) {
@@ -313,125 +395,67 @@ function format(world) {
     '', // Eff
     world.Efficiency,
     '', // Importance
-    toEHex(world.Homogeneity),
+    toEHex(world.Heterogeneity),
     '', // Acceptance
     toEHex(world.Strangeness),
     toEHex(world.Symbols),
   ];
 }
 
+
+
 function $(s) { return document.querySelector(s); }
 
-$('#go').addEventListener('click', e => {
+async function convertAndParse(text) {
+  const response = await fetch(new Request('https://travellermap.com/api/sec?type=TabDelimited',
+                           {method: 'POST', body: text}));
+  const tab = await response.text();
+  return parse(tab);
+}
 
-  const worlds = parse($('#in').value);
+$('#forss').addEventListener('click', async event => {
+  const worlds = await convertAndParse($('#in').value);
   worlds.forEach(world => process(world));
   worlds.forEach(world => t5ify(world));
+
+  worlds.sort((a, b) => a.Hex < b.Hex ? -1 : b.Hex < a.Hex ? 1 : 0);
+
   $('#out').value = worlds
     .map(world => format(world).join('\t'))
-    .join('\n');
+    .join('\n') + '\n';
 
   window.worlds = worlds;
 });
 
+$('#sectot5').addEventListener('click', async event => {
+  const worlds = await convertAndParse($('#in').value);
+  worlds.forEach(world => process(world));
+  worlds.forEach(world => t5ify(world));
+  const cols = ['Hex', 'Name', 'UWP', 'Bases', 'Remarks', 'Zone', 'PBG',
+                'Allegiance', 'Stars', '{Ix}', '(Ex)', '[Cx]', 'Nobility', 'W'];
 
-function generateStars() {
+  worlds.sort((a, b) => a.Hex < b.Hex ? -1 : b.Hex < a.Hex ? 1 : 0);
 
-  let primarySpectralFlux = flux();
-  let primarySizeFlux = flux();
+  $('#out').value =
+    cols.join('\t') + '\n' +
+    worlds
+    .map(world => [
+      world.Hex,
+      world.Name,
+      world.UWP,
+      world.Bases,
+      world.Remarks,
+      world.Zone,
+      world.PBG,
+      world.Allegiance,
+      world.Stars,
+      world._Ix_,
+      world._Ex_,
+      world._Cx_,
+      '',
+      world.Worlds
+    ].join('\t'))
+    .join('\n');
 
-  function generateStar(primary) {
-    function clamp(a, min, max) { return a < min ? min : a > max ? max : a; }
-
-    const table = {
-      Sp: { '-6': 'OB', '-5': 'A', '-4': 'A', '-3': 'F', '-2': 'F', '-1': 'G',
-            0: 'G', 1: 'K', 2: 'K', 3: 'M', 4: 'M', 5: 'M', 6: 'BD', 7: 'BD', 8: 'BD' },
-      O: { '-6': 'Ia', '-5': 'Ia', '-4': 'Ib', '-3': 'II', '-2': 'III', '-1': 'III',
-            0: 'III', 1: 'V', 2: 'V', 3: 'V', 4: 'IV', 5: 'D', 6: 'IV', 7: 'IV', 8: 'IV' },
-      B: { '-6': 'Ia', '-5': 'Ia', '-4': 'Ib', '-3': 'II', '-2': 'III', '-1': 'III',
-            0: 'III', 1: 'III', 2: 'V', 3: 'V', 4: 'IV', 5: 'D', 6: 'IV', 7: 'IV', 8: 'IV' },
-      A: { '-6': 'Ia', '-5': 'Ia', '-4': 'Ib', '-3': 'II', '-2': 'III', '-1': 'IV',
-            0: 'V', 1: 'V', 2: 'V', 3: 'V', 4: 'V', 5: 'D', 6: 'V', 7: 'V', 8: 'V' },
-      F: { '-6': 'II', '-5': 'II', '-4': 'III', '-3': 'IV', '-2': 'V', '-1': 'V',
-            0: 'V', 1: 'V', 2: 'V', 3: 'V', 4: 'VI', 5: 'D', 6: 'VI', 7: 'VI', 8: 'VI' },
-      G: { '-6': 'II', '-5': 'II', '-4': 'III', '-3': 'IV', '-2': 'V', '-1': 'V',
-            0: 'V', 1: 'V', 2: 'V', 3: 'V', 4: 'VI', 5: 'D', 6: 'VI', 7: 'VI', 8: 'VI' },
-      K: { '-6': 'II', '-5': 'II', '-4': 'III', '-3': 'IV', '-2': 'V', '-1': 'V',
-            0: 'V', 1: 'V', 2: 'V', 3: 'V', 4: 'VI', 5: 'D', 6: 'VI', 7: 'VI', 8: 'VI' },
-      M: { '-6': 'II', '-5': 'II', '-4': 'II', '-3': 'II', '-2': 'III', '-1': 'V',
-            0: 'V', 1: 'V', 2: 'V', 3: 'V', 4: 'VI', 5: 'D', 6: 'VI', 7: 'VI', 8: 'VI' }
-    };
-
-    while (true) {
-      // "Spectral Type: Roll Flux for Primary. For all others, Primary Flux + (1D-1)."
-      let spectral = table.Sp[clamp(
-        primary ? primarySpectralFlux : primarySpectralFlux + roll1D() - 1, -6, 8)];
-
-      // "Select further between O or B."
-      if (spectral === 'OB') spectral = roll1D() <= 3 ? 'O' : 'B';
-
-      // "If Spectral= BD ignore remaining rolls."
-      if (spectral === 'BD') return spectral;
-
-      // "Spectral Decimal. Roll decimal 0 to 9."
-      let spectralDecimal = roll1D10() - 1;
-
-      // "Stellar Size. Roll Flux for Primary. For all others, use Primary Flux + (1D+2)."
-      let size = table[spectral][clamp(
-        primary ? primarySizeFlux : primarySizeFlux + roll1D() + 2, -6, 8)];
-
-      // T5SS: Disallow D as primary
-      if (primary && size === 'D') {
-        primarySizeFlux = flux();
-        continue;
-      }
-
-      // "If Size= D, ignore Spectral Decimal."
-      // T5SS: Use only 'D' not 'MD' etc.
-      if (size === 'D') return size;
-
-      // "Size IV not for K5-K9 and M0-M9."
-      if (size === 'IV' && ((spectral === 'K' && spectralDecimal.in(5, 9)) ||
-                            spectral === 'M'))
-        continue;
-
-      // "Size VI not for A0-A9 and F0-F4."
-      if (size === 'VI' && (spectral === 'A' ||
-                            (spectral === 'F' && spectralDecimal.in(0, 4))))
-        continue;
-
-      return `${spectral}${spectralDecimal} ${size}`;
-    }
-  }
-
-  const stars = [];
-
-  // Primary
-  stars.push(generateStar(true));
-
-  // Companion
-  if (flux() >= 3) stars.push(generateStar());
-
-  // Close
-  if (flux() >= 3) {
-    stars.push(generateStar());
-    // Companion
-    if (flux() >= 3) stars.push(generateStar());
-  }
-
-  // Near
-  if (flux() >= 3) {
-    stars.push(generateStar());
-    // Companion
-    if (flux() >= 3) stars.push(generateStar());
-  }
-
-  // Far
-  if (flux() >= 3) {
-    stars.push(generateStar());
-    // Companion
-    if (flux() >= 3) stars.push(generateStar());
-  }
-
-  return stars.join(' ');
-}
+  window.worlds = worlds;
+});

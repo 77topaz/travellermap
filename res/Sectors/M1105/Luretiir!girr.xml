@@ -36,7 +36,7 @@
     <Allegiance Code="Kl">Lank'gha Collective</Allegiance>
     <Allegiance Code="Na">Non­Aligned, Human-dominated</Allegiance>
     <Allegiance Code="Re">Renkard Union</Allegiance>
-    <Allegiance Code="Hc">Human Client State</Allegiance>
+    <Allegiance Code="Sa">Saga Isles</Allegiance>
     <Allegiance Code="K5">K'Kree Client State</Allegiance>
     <Allegiance Code="Lt">Lords of Thunder</Allegiance>
     <Allegiance Code="Kk">The Two Thousand Worlds</Allegiance>
@@ -55,9 +55,9 @@
     <Border WrapLabel="true" Allegiance="Kk"
     LabelPosition="2933">
       2835 2834 2833 2832 2732 2631 2630 2730
-      2729 2828 2827 2927 2926 2925 2924 3023 3124 3223 3323 3324
+      2729 2828 2827 2927 2926 2925 2924 3023 3124 3223 3324
       3325 3326 3327 3328 3329 3330 3331 3332 3333 3334 3335 3336
-      3337 3338 3238 3138 3037 2937 2836 2835
+      3337 3237 3138 3037 2937 2836 2835
     </Border>
     <Border WrapLabel="false" Color="Purple" Allegiance="Lt"
     LabelPosition="1427">
@@ -81,7 +81,7 @@
       0600 0700 0701 0702 0703 0603 0604 0505 0404 0305 0304 0303
       0302 0201 0101 0100
     </Border>
-    <Border WrapLabel="false" Color="Orange" Allegiance="Hc"
+    <Border WrapLabel="false" Color="Orange" Allegiance="Sa"
     LabelPosition="0210">
       0111 0112 0212 0312 0311 0410 0409 0408
       0409 0410 0411 0412 0413 0314 0315 0215 0214 0114 0113 0112

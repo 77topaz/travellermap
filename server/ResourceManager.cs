@@ -1,163 +1,118 @@
+#nullable enable
+using Maps.Utilities;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using System.Web;
+using System.Web.Hosting;
 using System.Xml.Serialization;
 
 namespace Maps
 {
-    internal class LRUCache
-    {
-        public LRUCache(int size)
-        {
-            if (size <= 0)
-                throw new ArgumentOutOfRangeException(nameof(size), size, "must be > 0");
-            this.size = size;
-        }
-
-        public object this[string key]
-        {
-            get
-            {
-                int index = keys.FindIndex(delegate(string s) { return s == key; });
-                if (index == -1)
-                    return null;
-                
-                if (index == 0)
-                    return values[0];
-                
-                string k = keys[index];
-                object v = values[index];
-                keys.RemoveAt(index);
-                values.RemoveAt(index);
-                keys.Insert(0, k);
-                values.Insert(0, v);
-                return v;
-            }
-
-            set
-            {
-                keys.Insert(0, key);
-                values.Insert(0, value);
-                while (keys.Count > size)
-                {
-                    keys.RemoveAt(size);
-                }
-                while (values.Count > size)
-                {
-                    values.RemoveAt(size);
-                }
-            }
-        }
-
-        public void Clear()
-        {
-            keys = new List<string>();
-            values = new List<object>();
-        }
-
-        public int Count { get { return keys.Count; } }
-
-        public List<string>.Enumerator GetEnumerator()
-        {
-            return keys.GetEnumerator();
-        }
-
-        private int size;
-        private List<string> keys = new List<string>();
-        private List<object> values = new List<object>();
-    }
-
     internal interface IDeserializable
     {
-        void Deserialize(Stream stream, string mediaType, ErrorLogger errors = null);
+        void Deserialize(Stream stream, string mediaType, ErrorLogger? errors = null);
     }
 
     internal class ResourceManager
     {
-        public HttpServerUtility Server { get; private set; }
-        public LRUCache Cache { get; } = new LRUCache(50);
-
-        public ResourceManager(HttpServerUtility serverUtility)
+        // Thread affinity
+        private static ThreadLocal<ResourceManager> s_instance = new ThreadLocal<ResourceManager>(() => new ResourceManager());
+        
+        /// <summary>
+        /// Use for caching where thread-affinity is desired.
+        /// </summary>
+        /// <returns></returns>
+        public static ResourceManager GetInstance()
         {
-            Server = serverUtility;
+            return s_instance.Value;
+        }
+        /// <summary>
+        /// Use for tasks where caching should expire at the end of the lifetime.
+        /// </summary>
+        /// <returns></returns>
+        public static ResourceManager GetDedicatedInstance()
+        {
+            return new ResourceManager();
         }
 
-        public object GetXmlFileObject(string name, Type type, bool cache = true)
+        private LRUCache cache = new LRUCache(50);
+
+        private ResourceManager()
         {
-            if (!cache)
+        }
+
+        public static T GetXmlFileObject<T>(string name)
+        {
+            using var stream = new FileStream(HostingEnvironment.MapPath(name), FileMode.Open, FileAccess.Read, FileShare.Read);
+            try
             {
-                using (var stream = new FileStream(Server.MapPath(name), FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    try
-                    {
-                        XmlSerializer xs = new XmlSerializer(type);
-                        object o = xs.Deserialize(stream);
-                        if (o.GetType() != type)
-                            throw new InvalidOperationException();
-                        return o;
-                    }
-                    catch (InvalidOperationException ex) when (ex.InnerException is System.Xml.XmlException)
-                    {
-                        throw ex.InnerException;
-                    }
-                }
+                object o = new XmlSerializer(typeof(T)).Deserialize(stream);
+                if (o.GetType() != typeof(T))
+                    throw new ApplicationException($"Invalid file: {name}");
+                return (T)o;
             }
-
-            lock (Cache)
+            catch (InvalidOperationException ex) when (ex.InnerException is System.Xml.XmlException)
             {
-                object o = Cache[name];
-
-                if (o == null)
-                {
-                    o = GetXmlFileObject(name, type, cache: false);
-
-                    Cache[name] = o;
-                }
-
-                return o;
+                throw ex.InnerException;
             }
         }
 
-        public object GetDeserializableFileObject(string name, Type type, bool cacheResults, string mediaType)
+        public T GetCachedXmlFileObject<T>(string name)
         {
-            object obj = null;
+            object? o = cache[name];
 
-            // PERF: Whole cache is locked while loading a single item. Should use finer granularity
-            lock (Cache)
+            if (o == null)
             {
-                obj = Cache[name];
-
-                if (obj == null)
-                {
-                    using (var stream = new FileStream(Server.MapPath(name), FileMode.Open, FileAccess.Read, FileShare.Read))
-                    {
-                        ConstructorInfo constructorInfoObj = type.GetConstructor(
-                            BindingFlags.Instance | BindingFlags.Public, null,
-                            CallingConventions.HasThis, new Type[0], null);
-
-                        if (constructorInfoObj == null)
-                            throw new TargetException();
-
-                        obj = constructorInfoObj.Invoke(null);
-
-                        IDeserializable ides = obj as IDeserializable;
-                        if (ides == null)
-                            throw new TargetException();
-
-                        ides.Deserialize(stream, mediaType);
-                    }
-
-                    if (cacheResults)
-                        Cache[name] = obj;
-                }
+                o = GetXmlFileObject<T>(name);
+                cache[name] = o;
             }
+            if (o == null)
+                throw new ApplicationException("Unexpected null");
 
-            if (obj.GetType() != type)
-                throw new InvalidOperationException("Object is of the wrong type.");
-            
-            return obj;
+            return (T)o;
+        }
+
+        private static T GetDeserializableFileObject<T>(string name, string mediaType)
+        {
+            using (var stream = new FileStream(HostingEnvironment.MapPath(name), FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                ConstructorInfo constructorInfoObj = (typeof(T)).GetConstructor(
+                    BindingFlags.Instance | BindingFlags.Public, null,
+                    CallingConventions.HasThis, new Type[0], null) ??
+                    throw new TargetException();
+
+                object obj = constructorInfoObj.Invoke(null);
+
+                IDeserializable ides = obj as IDeserializable ??
+                    throw new TargetException();
+
+                ides.Deserialize(stream, mediaType);
+
+                if (obj.GetType() != typeof(T))
+                    throw new ApplicationException($"Invalid file: {name}");
+
+                return (T)obj;
+            }
+        }
+        public T GetCachedDeserializableFileObject<T>(string name, string mediaType)
+        {
+            object? obj = cache[name];
+
+            if (obj == null)
+            {
+                obj = GetDeserializableFileObject<T>(name, mediaType);
+                cache[name] = obj;
+            }
+            if (obj == null)
+                throw new ApplicationException("Unexpected null");
+
+            return (T)obj;
+        }
+        public void Flush()
+        {
+            cache.Clear();
         }
     }
 }

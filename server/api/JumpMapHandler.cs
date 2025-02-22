@@ -1,4 +1,7 @@
-﻿using Maps.Rendering;
+﻿#nullable enable
+using Maps.Graphics;
+using Maps.Rendering;
+using Maps.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -8,27 +11,17 @@ namespace Maps.API
 {
     internal class JumpMapHandler : ImageHandlerBase
     {
-        protected override string ServiceName { get { return "jumpmap"; } }
-
-        protected override DataResponder GetResponder(HttpContext context)
-        {
-            return new Responder(context);
-        }
+        protected override DataResponder GetResponder(HttpContext context) => new Responder(context);
 
         private class Responder : ImageResponder
         {
             public Responder(HttpContext context) : base(context) { }
-            public override void Process()
+            public override void Process(ResourceManager resourceManager)
             {
-                // NOTE: This (re)initializes a static data structure used for 
-                // resolving names into sector locations, so needs to be run
-                // before any other objects (e.g. Worlds) are loaded.
-                ResourceManager resourceManager = new ResourceManager(Context.Server);
-
                 //
                 // Jump
                 //
-                int jump = Util.Clamp(GetIntOption("jump", 6), 0, 12);
+                int jump = GetIntOption("jump", 6).Clamp(0, 20);
 
                 //
                 // Content & Coordinates
@@ -39,13 +32,24 @@ namespace Maps.API
                 {
                     Sector sector;
                     bool lint = GetBoolOption("lint", defaultValue: false);
-                    ErrorLogger errors = new ErrorLogger();
-                    sector = GetPostedSector(Context.Request, errors);
+                    Func<ErrorLogger.Record, bool>? filter = null;
+                    if (lint)
+                    {
+                        bool hide_uwp = GetBoolOption("hide-uwp", defaultValue: false);
+                        bool hide_tl = GetBoolOption("hide-tl", defaultValue: false);
+                        filter = (ErrorLogger.Record record) =>
+                        {
+                            if (hide_uwp && record.message.StartsWith("UWP")) return false;
+                            if (hide_tl && record.message.StartsWith("UWP: TL")) return false;
+                            return true;
+                        };
+                    }
+
+                    ErrorLogger errors = new ErrorLogger(filter);
+                    sector = GetPostedSector(Context.Request, errors) ??
+                        throw new HttpError(400, "Bad Request", "Either file or data must be supplied in the POST data.");
                     if (lint && !errors.Empty)
                         throw new HttpError(400, "Bad Request", errors.ToString());
-
-                    if (sector == null)
-                        throw new HttpError(400, "Bad Request", "Either file or data must be supplied in the POST data.");
 
                     int hex = GetIntOption("hex", Astrometrics.SectorCentralHex);
                     loc = new Location(new Point(0, 0), hex);
@@ -53,14 +57,16 @@ namespace Maps.API
                 }
                 else
                 {
-                    SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
+                    // NOTE: This (re)initializes a static data structure used for 
+                    // resolving names into sector locations, so needs to be run
+                    // before any other objects (e.g. Worlds) are loaded.
+                    SectorMap.Milieu map = SectorMap.ForMilieu(GetStringOption("milieu"));
 
                     if (HasOption("sector") && HasOption("hex"))
                     {
-                        string sectorName = GetStringOption("sector");
+                        string sectorName = GetStringOption("sector")!;
                         int hex = GetIntOption("hex", 0);
-                        Sector sector = map.FromName(sectorName);
-                        if (sector == null)
+                        Sector sector = map.FromName(sectorName) ??
                             throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
 
                         loc = new Location(sector.Location, hex);
@@ -80,13 +86,13 @@ namespace Maps.API
                 //
                 // Scale
                 //
-                double scale = Util.Clamp(GetDoubleOption("scale", 64), MinScale, MaxScale);
+                double scale = GetDoubleOption("scale", 64).Clamp(MinScale, MaxScale);
 
                 //
                 // Options & Style
                 //
                 MapOptions options = MapOptions.BordersMajor | MapOptions.BordersMinor | MapOptions.ForceHexes;
-                Stylesheet.Style style = Stylesheet.Style.Poster;
+                Style style = Style.Poster;
                 ParseOptions(ref options, ref style);
 
                 //
@@ -98,6 +104,9 @@ namespace Maps.API
                 // Clip
                 //
                 bool clip = GetBoolOption("clip", defaultValue: true);
+
+                // Hex Rotation
+                int hrot = GetIntOption("hrotation", defaultValue: 0);
 
                 //
                 // What to render
@@ -143,20 +152,23 @@ namespace Maps.API
                     styles.worldDetails |= WorldDetails.AllNames;
 
                 // Compute path
-                float[] edgeX, edgeY;
                 RenderUtil.HexEdges(styles.hexStyle == HexStyle.Square ? PathUtil.PathType.Square : PathUtil.PathType.Hex,
-                    out edgeX, out edgeY);
-                PointF[] boundingPathCoords;
-                byte[] boundingPathTypes;
-                PathUtil.ComputeBorderPath(clipPath, edgeX, edgeY, out boundingPathCoords, out boundingPathTypes);
+                    out float[] edgeX, out float[] edgeY);
+                PathUtil.ComputeBorderPath(clipPath, edgeX, edgeY, out PointF[] boundingPathCoords, out byte[] boundingPathTypes);
 
-                RenderContext ctx = new RenderContext(resourceManager, selector, tileRect, scale, options, styles, tileSize);
-                ctx.DrawBorder = border;
-                ctx.ClipOutsectorBorders = true;
+                AbstractMatrix transform = AbstractMatrix.Identity;
+                if (hrot != 0)
+                    ApplyHexRotation(hrot, styles, ref tileSize, ref transform);
 
-                // TODO: Widen path to allow for single-pixel border
-                ctx.ClipPath = clip ? new AbstractPath(boundingPathCoords, boundingPathTypes) : null;
-                ProduceResponse(Context, "Jump Map", ctx, tileSize, transparent: clip);
+                RenderContext ctx = new RenderContext(resourceManager, selector, tileRect, scale, options, styles, tileSize)
+                {
+                    DrawBorder = border,
+                    ClipOutsectorBorders = true,
+
+                    // TODO: Widen path to allow for single-pixel border
+                    ClipPath = clip ? new AbstractPath(boundingPathCoords, boundingPathTypes) : null
+                };
+                ProduceResponse(Context, "Jump Map", ctx, tileSize, transform, transparent: clip);
             }
         }
     }

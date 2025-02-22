@@ -1,31 +1,27 @@
-﻿using Json;
+﻿#nullable enable
+using Json;
+using Maps.Utilities;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Serialization;
 
 namespace Maps
 {
-    internal delegate bool WorldFilter(World w);
-
     public class World
     {
-        internal Sector Sector { get; set; }
+        internal Sector? Sector { get; set; }
 
         public string Name { get; set; } = string.Empty;
 
-        public string Hex
-        {
-            get { return hex.ToString(); }
-            set { hex = new Hex(value); }
-        }
+        public string Hex { get => hex.ToString(); set => hex = new Hex(value); }
 
-        internal string SubsectorHex { get { return hex.ToSubsectorString(); } }
-
+        internal string SubsectorHex => hex.ToSubsectorString();
         [XmlElement("UWP"), JsonName("UWP")]
         public string UWP { get; set; } = "X000000-0";
 
@@ -33,11 +29,8 @@ namespace Maps
         public string PBG { get; set; } = "000";
         public string Zone
         {
-            get { return zone; }
-            set
-            {
-                zone = (value == " " || value == "G") ? string.Empty : value;
-            }
+            get => zone;
+            set => zone = (value == " " || value == "G") ? string.Empty : value;
         }
         private string zone = string.Empty;
 
@@ -46,27 +39,20 @@ namespace Maps
         public string Stellar { get; set; } = string.Empty;
 
         // T5
-        public string SS
-        {
-            get
-            {
-                return "" + (char)('A' + Subsector);
-            }
-        }
+        public string SS => "" + (char)('A' + Subsector);
 
         [XmlElement("Ix"), JsonName("Ix")]
-        public string Importance { get; set; }
+        public string? Importance { get; set; }
 
         internal int? ImportanceValue
         {
             get
             {
                 int? value = null;
-                int tmp;
-                string ix = Importance;
-                if (!string.IsNullOrWhiteSpace(ix) && int.TryParse(ix.Replace('{', ' ').Replace('}', ' '),
+                string? ix = Importance;
+                if (!string.IsNullOrWhiteSpace(ix) && int.TryParse(ix?.Replace('{', ' ')?.Replace('}', ' ') ?? "",
                     NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite | NumberStyles.Integer,
-                    CultureInfo.InvariantCulture, out tmp))
+                    CultureInfo.InvariantCulture, out int tmp))
                 {
                     value = tmp;
                 }
@@ -74,34 +60,32 @@ namespace Maps
             }
         }
 
+        private int? calculatedImportance; // cache
+        [XmlIgnore, JsonIgnore]
+        public int CalculatedImportance
+        {
+            get
+            {
+                if (!calculatedImportance.HasValue)
+                    calculatedImportance = CalculateImportance();
+                return calculatedImportance.Value;
+            }
+        }
+
+
         [XmlElement("Ex"), JsonName("Ex")]
-        public string Economic { get; set; }
+        public string? Economic { get; set; }
         [XmlElement("Cx"), JsonName("Cx")]
-        public string Cultural { get; set; }
-        public string Nobility { get; set; }
+        public string? Cultural { get; set; }
+        public string? Nobility { get; set; }
         public byte Worlds { get; set; }
-        public int ResourceUnits { get; set; }
+        public int? ResourceUnits { get; set; }
 
         private Hex hex;
-        internal byte X { get { return hex.X; } }
-        internal byte Y { get { return hex.Y; } }
-
-        public int Subsector
-        {
-            get
-            {
-                return ((X - 1) / Astrometrics.SubsectorWidth) + ((Y - 1) / Astrometrics.SubsectorHeight) * 4;
-            }
-        }
-
-        public int Quadrant
-        {
-            get
-            {
-                return ((X - 1) / (Astrometrics.SubsectorWidth * 2)) + ((Y - 1) / (Astrometrics.SubsectorHeight * 2)) * 4;
-            }
-        }
-
+        internal byte X => hex.X;
+        internal byte Y => hex.Y;
+        public int Subsector => ((X - 1) / Astrometrics.SubsectorWidth) + ((Y - 1) / Astrometrics.SubsectorHeight) * 4;
+        public int Quadrant => ((X - 1) / (Astrometrics.SubsectorWidth * 2)) + ((Y - 1) / (Astrometrics.SubsectorHeight * 2)) * 4;
 
         internal Point Coordinates
         {
@@ -114,20 +98,37 @@ namespace Maps
             }
         }
 
-        internal char Starport { get { return UWP[0]; } }
-        internal int Size { get { return Char.ToUpperInvariant(UWP[1]) == 'S' ? -1 : SecondSurvey.FromHex(UWP[1], valueIfUnknown: -1); } }
-        internal int Atmosphere { get { return SecondSurvey.FromHex(UWP[2], valueIfUnknown: -1); } }
-        internal int Hydrographics { get { return SecondSurvey.FromHex(UWP[3], valueIfUnknown: -1); } }
-        internal int PopulationExponent { get { return SecondSurvey.FromHex(UWP[4], valueIfUnknown: 0); } }
-        internal int Government { get { return SecondSurvey.FromHex(UWP[5], valueIfUnknown: 0); } }
-        internal int Law { get { return SecondSurvey.FromHex(UWP[6], valueIfUnknown: 0); } }
-        internal int TechLevel { get { return SecondSurvey.FromHex(UWP[8], valueIfUnknown: 0); } }
+        // For API data
+        public int WorldX => Coordinates.X;
+        public int WorldY => Coordinates.Y;
+
+        public const int PBG_P = 0;
+        public const int PBG_B = 1;
+        public const int PBG_G = 2;
+
+        public const int UWP_St = 0;
+        public const int UWP_S = 1;
+        public const int UWP_A = 2;
+        public const int UWP_H = 3;
+        public const int UWP_P = 4;
+        public const int UWP_G = 5;
+        public const int UWP_L = 6;
+        public const int UWP_TL = 8;
+
+        internal char Starport => UWP[UWP_St];
+        internal int Size => Char.ToUpperInvariant(UWP[UWP_S]) == 'S' ? -1 : SecondSurvey.FromHex(UWP[UWP_S], valueIfUnknown: -1);
+        internal int Atmosphere => SecondSurvey.FromHex(UWP[UWP_A], valueIfUnknown: -1);
+        internal int Hydrographics => SecondSurvey.FromHex(UWP[UWP_H], valueIfUnknown: -1);
+        internal int PopulationExponent => SecondSurvey.FromHex(UWP[UWP_P], valueIfUnknown: 0);
+        internal int Government => SecondSurvey.FromHex(UWP[UWP_G], valueIfUnknown: 0);
+        internal int Law => SecondSurvey.FromHex(UWP[UWP_L], valueIfUnknown: 0);
+        internal int TechLevel => SecondSurvey.FromHex(UWP[UWP_TL], valueIfUnknown: 0);
 
         internal int PopulationMantissa
         {
             get
             {
-                int mantissa = SecondSurvey.FromHex(PBG[0], valueIfUnknown: 0);
+                int mantissa = SecondSurvey.FromHex(PBG[PBG_P], valueIfUnknown: 0);
                 // Hack for legacy data w/o PBG
                 if (mantissa == 0 && PopulationExponent > 0)
                     return 1;
@@ -135,47 +136,38 @@ namespace Maps
             }
         }
 
-        internal int Belts { get { return SecondSurvey.FromHex(PBG[1], valueIfUnknown: 0); } }
-        internal int GasGiants { get { return SecondSurvey.FromHex(PBG[2], valueIfUnknown: 0); } }
-        internal double Population { get { return Math.Pow(10, PopulationExponent) * PopulationMantissa; } }
-        internal bool WaterPresent { get { return (Hydrographics > 0) && (Util.InRange(Atmosphere, 2, 9) || Util.InRange(Atmosphere, 0xD, 0xF)); } }
-        internal bool IsBa { get { return PopulationExponent == 0; } }
-        internal bool IsLo { get { return PopulationExponent < 4; } }
-        internal bool IsHi { get { return PopulationExponent >= 9; } }
+        internal int Belts => SecondSurvey.FromHex(PBG[PBG_B], valueIfUnknown: 0);
+        internal int GasGiants => SecondSurvey.FromHex(PBG[PBG_G], valueIfUnknown: 0);
+        internal double Population => Math.Pow(10, PopulationExponent) * PopulationMantissa;
+        internal bool WaterPresent => (Hydrographics > 0) && (Atmosphere.InRange(2, 9) || Atmosphere.InRange(0xD, 0xF));
 
-        internal bool IsAg { get { return Util.InRange(Atmosphere, 4, 9) && Util.InRange(Hydrographics, 4, 8) && Util.InRange(PopulationExponent, 5, 7); } }
-        internal bool IsNa { get { return Util.InRange(Atmosphere, 0, 3) && Util.InRange(Hydrographics, 0, 3) && Util.InRange(PopulationExponent, 6, 10); } }
-        internal bool IsIn { get { return Util.InList(Atmosphere, 0, 1, 2, 4, 7, 9) && Util.InList(PopulationExponent, 9, 10); } }
-        internal bool IsNi { get { return Util.InRange(PopulationExponent, 1, 6); } }
-        internal bool IsRi { get { return Util.InList(Atmosphere, 6, 7, 8) && Util.InList(PopulationExponent, 6, 7, 8) && Util.InList(Government, 4, 5, 6, 7, 8, 9); } }
-        internal bool IsPo { get { return Util.InList(Atmosphere, 2, 3, 4, 5) && Util.InList(Hydrographics, 0, 1, 2, 3) && PopulationExponent > 0; } }
+        // Only define what is needed.
+        // TODO: Unify with validation checks.
 
-        internal bool IsWa { get { return Hydrographics == 10; } }
-        internal bool IsDe { get { return Util.InRange(Atmosphere, 2, 10) && Hydrographics == 0; } }
-        internal bool IsAs { get { return Size == 0; } }
-        internal bool IsVa { get { return Util.InRange(Size, 1, 10) && Atmosphere == 0; } }
-        internal bool IsIc { get { return Util.InList(Atmosphere, 0, 1) && Util.InRange(Hydrographics, 1, 10); } }
-        internal bool IsFl { get { return Atmosphere == 10 && Util.InRange(Hydrographics, 1, 10); } }
+        // Planetary
+        internal bool IsAs => Size == 0;
+        internal bool IsVa => Atmosphere == 0;
 
-        internal bool IsCp { get { return HasCode("Cp"); } }
-        internal bool IsCs { get { return HasCode("Cs"); } }
-        internal bool IsCx { get { return HasCode("Cx"); } }
+        // Population
+        internal bool IsHi => PopulationExponent >= 9;
 
-        internal bool IsPenalColony { get { return HasCode("Pe"); } }
-        internal bool IsReserve { get { return HasCode("Re"); } }
-        internal bool IsPrisonExileCamp { get { return HasCode("Px") || HasCode("Ex"); } } // Px is T5, Ex is legacy
-        // TODO: "Pr" is used in some legacy files, conflicts with T5 "Pre-Rich" - convert codes on import/export
-        internal string ResearchStation { get { return GetCodePrefix("Rs"); } }
+        // Economic
+        internal bool IsAg => Atmosphere.InRange(4, 9) && Hydrographics.InRange(4, 8) && PopulationExponent.InRange(5, 7);
+        internal bool IsIn => Atmosphere.InList(0, 1, 2, 4, 7, 9, 10, 11, 12) && PopulationExponent >= 9;
+        internal bool IsRi => Atmosphere.InList(6, 8) && PopulationExponent.InList(6, 7, 8);
 
-        internal bool IsPlaceholder { get { return UWP == "XXXXXXX-X" || UWP == "???????-?"; } }
+        internal bool IsCp => HasCode("Cp");
+        internal bool IsCs => HasCode("Cs");
+        internal bool IsCx => HasCode("Cx");
+        internal bool IsCapital => codes.Any(s => s == "Cp" || s == "Cs" || s == "Cx" || s == "Capital");
 
-        internal bool IsCapital
-        {
-            get
-            {
-                return codes.Any(s => s == "Cp" || s == "Cs" || s == "Cx" || s == "Capital");
-            }
-        }
+        internal bool IsPenalColony => HasCode("Pe");
+        internal bool IsPrisonExileCamp => HasCode("Px") || HasCode("Ex");         // TODO: "Pr" is used in some legacy files, conflicts with T5 "Pre-Rich" - convert codes on import/export
+        internal bool IsReserve => HasCode("Re");
+        internal string ResearchStation => GetCodePrefix("Rs");
+
+        internal bool IsPlaceholder => UWP == "XXXXXXX-X" || UWP == "???????-?";
+        internal bool IsAnomaly => HasCode("{Anomaly}");
 
         public bool HasCode(string code)
         {
@@ -184,6 +176,16 @@ namespace Maps
 
             return codes.Any(s => s.Equals(code, StringComparison.InvariantCultureIgnoreCase));
         }
+
+        public bool HasBase(char code) => Bases.Contains(code);
+
+        // Naval Base (N = Imperial, K = other)
+        public bool HasNavalBase() => HasBase('N') || HasBase('K');
+        // Non-Naval Service Base (S = Scout, M = Military, V = Exploration, C = Corsair)
+        public bool HasOtherServiceBase() => HasBase('S') || HasBase('M') || HasBase('V') || HasBase('C');
+        // Special Service Base (W = Scout Way Station, D = Naval Depot)
+        public bool HasServiceSpecialBase() => HasBase('W') || HasBase('D');
+
 
         public string GetCodePrefix(string code)
         {
@@ -206,8 +208,17 @@ namespace Maps
         // "[Sophont]" - major race homeworld
         // "(Sophont)" - minor race homeworld
         // "(Sophont)0" - minor race homeworld (population in tenths)
+        // "Di(Sophont)" - minor race (dieback)
         // "{comment ... }" - arbitrary comment
         // "xyz" - other code
+        private static readonly Tuple<string, char>[] MARKERS = new Tuple<string, char>[]
+        {
+            Tuple.Create("[", ']'),
+            Tuple.Create("(", ')'),
+            Tuple.Create("{", '}'),
+            Tuple.Create("Di(", ')')
+        };
+
         private class CodeList : IEnumerable<string>
         {
             public CodeList(string codes = "") { this.codes = codes; }
@@ -215,157 +226,160 @@ namespace Maps
 
             public IEnumerator<string> GetEnumerator()
             {
-                int pos = 0;                
+                int pos = 0;
                 while (pos < codes.Length)
                 {
-                    int begin = pos;
-                    switch (codes[pos++])
+                    if (codes[pos] == ' ')
                     {
-                        case ' ':
-                            continue;
-                        case '[':
-                            while (pos < codes.Length && codes[pos] != ']') ++pos;
-                            while (pos < codes.Length && codes[pos] != ' ') ++pos;
-                            break;
-                        case '(':
-                            while (pos < codes.Length && codes[pos] != ')') ++pos;
-                            while (pos < codes.Length && codes[pos] != ' ') ++pos;
-                            break;
-                        case '{':
-                            while (pos < codes.Length && codes[pos] != '}') ++pos;
-                            while (pos < codes.Length && codes[pos] != ' ') ++pos;
-                            break;
-                        default:
-                            while (pos < codes.Length && codes[pos] != ' ') ++pos;
-                            break;
+                        ++pos;
+                        continue;
                     }
+
+                    int begin = pos;
+                    bool found = false;
+
+                    foreach (var (start, endchar) in MARKERS)
+                    {
+                        if (codes.MatchAt(start, pos))
+                        {
+                            pos += start.Length;
+                            pos = codes.IndexOf(endchar, pos);
+                            if (pos != -1)
+                                pos = codes.IndexOf(' ', pos);
+                            if (pos == -1)
+                                pos = codes.Length;
+                            yield return codes.Substring(begin, pos - begin);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found)
+                        continue;
+
+                    pos = codes.IndexOf(' ', pos);
+                    if (pos == -1)
+                        pos = codes.Length;
                     yield return codes.Substring(begin, pos - begin);
                 }
             }
 
-            IEnumerator IEnumerable.GetEnumerator() { return GetEnumerator(); }
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         }
 
         public string Remarks
         {
-            get { return string.Join(" ", codes); }
-            set
-            {
-                if (value == null)
-                    throw new ArgumentNullException(nameof(value));
-                codes = new CodeList(value);
-            }
+            get => string.Join(" ", codes);
+            set => codes = new CodeList(value ?? throw new ArgumentNullException(nameof(value)));
         }
 
-        internal IEnumerable<string> Codes { get { return codes; } }
+        internal IEnumerable<string> Codes => codes;
         private CodeList codes = new CodeList();
 
         public string LegacyBaseCode
         {
-            get { return SecondSurvey.EncodeLegacyBases(Allegiance, Bases); }
-            set { Bases = SecondSurvey.DecodeLegacyBases(Allegiance, value); }
+            get => SecondSurvey.EncodeLegacyBases(Allegiance, Bases);
+            set => Bases = SecondSurvey.DecodeLegacyBases(Allegiance, value);
         }
 
-        internal bool IsAmber { get { return Zone == "A" || Zone == "U"; } }
-        internal bool IsRed { get { return Zone == "R" || Zone == "F"; } }
-        internal bool IsBlue { get { return Zone == "B"; } } // TNE Technologically Elevated Dictatorship
+        internal bool IsAmber => Zone == "A" || Zone == "U";
+        internal bool IsRed => Zone == "R" || Zone == "F";
+        internal bool IsTNEBalkanized => Zone == "B";
 
         [XmlAttribute("Sector"), JsonName("Sector")]
-        public string SectorName { get { return Sector.Names[0].Text; } }
+        public string SectorName => Sector?.Names[0].Text ?? "";
+        public string SubsectorName => Sector?.Subsector(Subsector)?.Name ?? "";
 
-        public string SubsectorName
-        {
-            get
-            {
-                return Sector.Subsector(Subsector)?.Name ?? "";
-            }
-        }
+        public string? SectorAbbreviation => Sector?.Abbreviation;
 
-        public string AllegianceName
-        {
-            get
-            {
-                return Sector?.GetAllegianceFromCode(Allegiance)?.Name ?? "";
-            }
-        }
+        public string AllegianceName => Sector?.GetAllegianceFromCode(Allegiance)?.Name ?? "";
 
-        internal string BaseAllegiance
-        {
-            get
-            {
-                return Sector?.AllegianceCodeToBaseAllegianceCode(Allegiance) ?? Allegiance;
-            }
-        }
+        internal string BaseAllegiance => Sector?.AllegianceCodeToBaseAllegianceCode(Allegiance) ?? Allegiance;
 
-        internal string LegacyAllegiance
-        {
-            get
-            {
-                return SecondSurvey.T5AllegianceCodeToLegacyCode(Allegiance);
-            }
-        }
+        internal string LegacyAllegiance => SecondSurvey.T5AllegianceCodeToLegacyCode(Allegiance);
 
 
+        private static Regex SOPHPOP_CODE_REGEX = new Regex(@"^(....)([0-9W])$", RegexOptions.Compiled);
+        private static Regex SOPHPOP_MINOR_CODE_REGEX = new Regex(@"^\((.*)\)([0-9])?$", RegexOptions.Compiled);
+        private static Regex SOPHPOP_MAJOR_CODE_REGEX = new Regex(@"^\[(.*)\]([0-9])?$", RegexOptions.Compiled);
 
         internal void Validate(ErrorLogger errors, int lineNumber, string line)
         {
-            if (UWP == "???????-?") return;
+            // TODO: Validate partial UWPs
+            if (UWP.Contains('?') || UWP == "XXXXXXX-X") return;
 
-            Action<string> Error = (string message) => { errors.Error(message, lineNumber, line); };
-            Action<bool, string> ErrorIf = (bool test, string message) => { if (test) Error(message); };
-            Action<bool, string> ErrorUnless = (bool test, string message) => { if (!test) Error(message); };
-            Func<int, string, bool> Check = (int value, string hex) =>
+            #region Helpers
+            void Error(string message) { errors.Warning(message, lineNumber, line); }
+            void ErrorIf(bool test, string message) { if (test) Error(message); }
+            void ErrorUnless(bool test, string message) { if (!test) Error(message); }
+
+            static bool Check(int value, string hex)
             {
-                for (int i = 0; i < hex.Length; ++i)
+                foreach (char c in hex)
                 {
-                    if (value == SecondSurvey.FromHex(hex[i]))
+                    if (value == SecondSurvey.FromHex(c))
                         return true;
                 }
                 return false;
-            };
+            }
 
-            Func<string, bool, bool> CC = (string code, bool calc) =>
+            bool CC(string code, bool calc)
             {
                 if (calc)
                     ErrorUnless(HasCode(code), $"Missing code: {code}");
                 else
                     ErrorUnless(!HasCode(code), $"Extraneous code: {code}");
                 return calc;
-            };
+            }
 
-#if VALIDATE_UWP
+            int OneIfZero(int n)
+            {
+                return n == 0 ? 1 : n;
+            }
+            #endregion
+
+            #region UWP
+
+            bool customGov = BaseAllegiance == "Kk";
+            bool customLaw = BaseAllegiance == "Kk";
+
             // UWP
-            ErrorIf(Atmosphere > 15, $"UWP: Atm>F: {Atmosphere}");
-            ErrorIf(Hydrographics > 10, $"UWP: Hyd>A: {Hydrographics}");
-            ErrorIf(PopulationExponent > 15, $"UWP: Pop>F: {PopulationExponent}");
-            ErrorUnless(Util.InRange(Government, PopulationExponent - 5, Math.Max(15, PopulationExponent + 5)),
-                $"UWP: Gov={Government} out of range (Pop={PopulationExponent} + Flux)");
-            ErrorUnless(Util.InRange(Law, Government - 5, Math.Max(18, Government + 5)),
-                $"UWP: Law={Law} out of range (Gov={Government} + Flux)");
-            int tlmod = 
+            ErrorIf(Atmosphere > 15,
+                $"UWP: Atm={Atmosphere} out of range; should be: 0...F");
+            ErrorIf(Hydrographics > 10,
+                $"UWP: Hyd={Hydrographics} out of range; should be: 0...A");
+            ErrorIf(PopulationExponent > 15,
+                $"UWP: Pop={PopulationExponent} out of range; should be: 0...F");
+            ErrorUnless(customGov || Government.InRange(PopulationExponent - 5, Math.Max(15, PopulationExponent + 5)),
+                $"UWP: Gov={Government} out of range; should be: Pop(={PopulationExponent}) + Flux");
+            ErrorUnless(customLaw || Law.InRange(Government - 5, Math.Max(18, Government + 5)),
+                $"UWP: Law={Law} out of range; should be: Gov(={Government}) + Flux");
+            int tlmod =
                 (Starport == 'A' ? 6 : 0) + (Starport == 'B' ? 4 : 0) + (Starport == 'C' ? 2 : 0) + (Starport == 'X' ? -4 : 0) +
                 (Size == 0 || Size == 1 ? 2 : 0) + (Size == 2 || Size == 3 || Size == 4 ? 1 : 0) +
                 (Atmosphere <= 3 ? 1 : 0) + (Atmosphere >= 10 ? 1 : 0) +
-                (Hydrographics == 9 ? 1 : 0) + (Hydrographics == 10 ? 2 : 0) + 
-                (Util.InRange(PopulationExponent, 1, 5) ? 1 : 0) + (PopulationExponent == 9 ? 2 : 0) + (PopulationExponent >= 10 ? 4 : 0) +
+                (Hydrographics == 9 ? 1 : 0) + (Hydrographics == 10 ? 2 : 0) +
+                (PopulationExponent.InRange(1, 5) ? 1 : 0) + (PopulationExponent == 9 ? 2 : 0) + (PopulationExponent >= 10 ? 4 : 0) +
                 (Government == 0 || Government == 5 ? 1 : 0) + (Government == 13 ? -2 : 0);
-            ErrorUnless(Util.InRange(TechLevel, tlmod + 1, tlmod + 6),
-                $"UWP: TL={TechLevel} out of range (mods={tlmod} + 1D)");
-#endif
+            ErrorUnless(TechLevel.InRange(tlmod + 1, tlmod + 6) ||
+                (PopulationExponent == 0 && TechLevel == 0),
+                $"UWP: TL={TechLevel} out of range; should be: mods(={tlmod}) + 1D");
+            #endregion
 
+            #region Codes
             // Planetary
             bool As = CC("As", Check(Size, "0") /*&& Check(Atmosphere, "0") && Check(Hydrographics, "0")*/);
             bool De = CC("De", Check(Atmosphere, "23456789") && Check(Hydrographics, "0"));
             bool Fl = CC("Fl", Check(Atmosphere, "ABC") && Check(Hydrographics, "123456789A"));
             bool Ga = CC("Ga", Check(Size, "678") && Check(Atmosphere, "568") && Check(Hydrographics, "567"));
-            bool He = CC("He", Check(Size, "3456789A" /* + "BC" */) && Check(Atmosphere, "2479ABC") && Check(Hydrographics, "012")); // TODO: Add BC to T5SS spreadsheet calcs
+            bool He = CC("He", Check(Size, "3456789ABC") && Check(Atmosphere, "2479ABC") && Check(Hydrographics, "012"));
             bool Ic = CC("Ic", Check(Atmosphere, "01") && Check(Hydrographics, "123456789A"));
-            bool Oc = CC("Oc", Check(Size, "ABC") && Check(Atmosphere, "3456789") && Check(Hydrographics, "A"));
+            bool Oc = CC("Oc", Check(Size, "ABCDEF") && Check(Atmosphere, "3456789DEF") && Check(Hydrographics, "A"));
             bool Va = CC("Va", Check(Atmosphere, "0"));
-            bool Wa = CC("Wa", Check(Size, "3456789") && Check(Atmosphere, "3456789") && Check(Hydrographics, "A"));
+            bool Wa = CC("Wa", Check(Size, "3456789") && Check(Atmosphere, "3456789DEF") && Check(Hydrographics, "A"));
 
             // Population
-            bool Di = CC("Di", PopulationExponent == 0 /*&& Government == 0 && Law == 0*/ && TechLevel > 0);
+            bool Di = (PopulationExponent == 0 /*&& Government == 0 && Law == 0*/ && TechLevel > 0);
+            ErrorIf(Di && !HasCodePrefix("Di"), "Missing code: Di or Di(sophont) is required if Pop=0 and TL>0");
             bool Ba = CC("Ba", PopulationExponent == 0 /*&& Government == 0 && Law == 0*/ && TechLevel == 0);
             bool Lo = CC("Lo", Check(PopulationExponent, "123"));
             bool Ni = CC("Ni", Check(PopulationExponent, "456"));
@@ -382,100 +396,215 @@ namespace Maps
             bool Pr = CC("Pr", Check(Atmosphere, "68") && Check(PopulationExponent, "59"));
             bool Ri = CC("Ri", Check(Atmosphere, "68") && Check(PopulationExponent, "678"));
 
-            // {Ix}
-            int imp = 0;
+            ErrorUnless(As == IsAs, "Internal code failure: As/IsAs definitions");
+            ErrorUnless(Va == IsVa, "Internal code failure: Va/IsVa definitions");
+            ErrorUnless(Ag == IsAg, "Internal code failure: Ag/IsAg definitions");
+            ErrorUnless(In == IsIn, "Internal code failure: In/IsIn definitions");
+            ErrorUnless(Ri == IsRi, "Internal code failure: Ri/IsRi definitions");
+
+            ErrorIf(HasCode("Da") && Zone != "A", "Zone: Da (Danger) requires Amber Zone");
+            ErrorIf(HasCode("Pz") && Zone != "A", "Zone: Pz (Puzzle) requires Amber Zone");
+            ErrorIf(HasCode("Fo") && Zone != "R", "Zone: Fo (Forbidden) requires Red Zone");
+            #endregion
+
+            #region Sophonts
+            int sophpop = 0;
+            List<string> sophpops = new List<string>();
+            foreach (var code in Codes)
             {
-                string ix = Importance.Replace('{', ' ').Replace('}', ' ').Trim();
-
-                if ("AB".Contains(Starport)) ++imp;
-                if ("DEX".Contains(Starport)) --imp;
-                if (TechLevel >= 10) ++imp;
-                //if (TechLevel >= 16) ++imp; // TODO: Add to T5SS spreadsheet calcs
-                if (TechLevel <= 8) --imp;
-                if (PopulationExponent <= 6) --imp;
-                if (PopulationExponent >= 9) ++imp;
-                if (Ag) ++imp;
-                if (Ri) ++imp;
-                if (In) ++imp;
-                if (Bases == "NS" || Bases == "NW" || Bases == "W" || Bases == "X" || Bases == "D" || Bases == "RT" || Bases == "CK" || Bases == "KM") ++imp;
-
-                ErrorUnless(Int32.Parse(ix) == imp,
-                    $"{{Ix}}={Importance} does not match calculated Importance={imp}");
-            }
-
-            // (Ex)
-            {
-                string ex = Economic.Replace('(', ' ').Replace(')', ' ').Trim();
-                int resources = SecondSurvey.FromHex(ex[0]);
-                int labor = SecondSurvey.FromHex(ex[1]);
-                int infrastructure = SecondSurvey.FromHex(ex[2]);
-                int efficiency = Int32.Parse(ex.Substring(3));
-
-                if (TechLevel < 8)
-                    ErrorUnless(Util.InRange(resources, 2, 12),
-                        $"(Ex) Resources={resources} out of range for TL<8={TechLevel} (2D)");
-                else 
-                    ErrorUnless(Util.InRange(resources, 2 + GasGiants + Belts, 12 + GasGiants + Belts),
-                        $"(Ex) Resources={resources} out of range for TL8+={TechLevel} (2D + GG={GasGiants} + Belts={Belts})");
-                    
-                ErrorUnless(labor == Math.Max(0, PopulationExponent - 1),
-                    $"(Ex) Labor={labor} does not match Pop={PopulationExponent} - 1");
-                    
-                if (Ba)
-                    ErrorUnless(infrastructure == 0, $"(Ex) Infrastructure={infrastructure} should be 0 if Ba");
-                else if (Lo)
-                    ErrorUnless(infrastructure == 1, $"(Ex) Infrastructure={infrastructure} should be 1 if Lo");
-                else if (Ni)
-                    ErrorUnless(Util.InRange(infrastructure, Math.Max(0, imp + 1), Math.Max(0, imp + 6)),
-                        $"(Ex) Infrastructure={infrastructure} out of range for Ni (Imp={imp} + 1D)");
-                else
-                    ErrorUnless(Util.InRange(infrastructure, Math.Max(0, imp + 2), Math.Max(0, imp + 12)),
-                        $"(Ex) Infrastructure={infrastructure} out of range (Imp={imp} + 2D)");
-
-                ErrorUnless(Util.InRange(efficiency, -5, 5),
-                    $"(Ex) Efficiency={efficiency} out of range (Flux)");
-            }
-
-            // [Cx]
-            {
-                string cx = Cultural.Replace('[', ' ').Replace(']', ' ').Trim();
-                int homogeneity = SecondSurvey.FromHex(cx[0]);
-                int acceptance = SecondSurvey.FromHex(cx[1]);
-                int strangeness = SecondSurvey.FromHex(cx[2]);
-                int symbols = SecondSurvey.FromHex(cx[3]);
-
-                if (PopulationExponent == 0)
+                Match m;
+                string soph;
+                char pop;
+                if ((m = SOPHPOP_CODE_REGEX.Match(code)).Success)
                 {
-                    if (homogeneity != 0) Error($"[Cx] Homogeneity={homogeneity} - expected 0 for Pop 0");
-                    if (acceptance != 0) Error($"[Cx] Acceptance={acceptance} - expected 0 for Pop 0");
-                    if (strangeness != 0) Error($"[Cx] Strangeness={strangeness} - expected 0 for Pop 0");
-                    if (symbols != 0) Error($"[Cx] Symbols={symbols} - expected 0 for Pop 0");
+                    soph = m.Groups[1].Value;
+                    pop = m.Groups[2].Value[0];
+                    ErrorUnless(SecondSurvey.SophontCodes.Contains(soph), $"Codes: Nonstandard sophont code: {soph}");
+                }
+                else if ((m = SOPHPOP_MINOR_CODE_REGEX.Match(code)).Success ||
+                    (m = SOPHPOP_MAJOR_CODE_REGEX.Match(code)).Success)
+                {
+                    soph = m.Groups[1].Value;
+                    pop = m.Groups[2].Success ? m.Groups[2].Value[0] : 'W';
+                    // TODO: Check species name against T5SS table?
                 }
                 else
                 {
-                    ErrorUnless(Util.InRange(homogeneity, Math.Max(1, PopulationExponent - 5), Math.Max(1, PopulationExponent + 5)),
-                        $"[Cx] Homogeneity={homogeneity} out of range (Pop={PopulationExponent} + Flux)");
-                    ErrorUnless(acceptance == Math.Max(1, PopulationExponent + imp),
-                        $"[Cx] Acceptance={acceptance} not equal Pop={PopulationExponent} + Imp={imp}");
-                    ErrorUnless(Util.InRange(strangeness, Math.Max(1, 5 - 5), Math.Max(1, 5 + 5)),
-                        $"[Cx] Strangeness={strangeness} out of range (Flux + 5)");
-                    ErrorUnless(Util.InRange(symbols, Math.Max(1, TechLevel - 5), Math.Max(1, TechLevel + 5)),
-                        $"[Cx] Symbols={symbols} out of range (TL={TechLevel} + Flux)");
+                    continue;
+                }
+                sophpops.Add(code);
+                sophpop += (pop == 'W') ? 10 : ((int)pop - (int)'0');
+            }
+            ErrorIf(sophpop > 10, $"Codes: Sophont pop codes > 100%: {string.Join(" ", sophpops)}");
+            #endregion
+
+            #region Bases
+            ErrorUnless(Bases == String.Concat(Bases.OrderBy(c => c).Distinct()),
+                $"Bases: Must be distinct and appear in alphabetical order: {Bases}");
+            #endregion
+
+            // {Ix}
+            int imp = CalculateImportance();
+            if (!string.IsNullOrWhiteSpace(Importance))
+            {
+                string ix = Importance?.Replace('{', ' ').Replace('}', ' ').Trim() ?? "";
+                if (ix != "")
+                {
+                    ErrorUnless(Int32.Parse(ix) == imp,
+                        $"{{Ix}} Importance={ix} incorrect; should be: {imp}");
+                }
+            }
+
+            // (Ex)
+            if (!string.IsNullOrWhiteSpace(Economic))
+            {
+                string ex = Economic?.Replace('(', ' ').Replace(')', ' ').Trim() ?? "";
+                if (ex != "")
+                {
+                    int resources = SecondSurvey.FromHex(ex[0]);
+                    int labor = SecondSurvey.FromHex(ex[1]);
+                    int infrastructure = SecondSurvey.FromHex(ex[2]);
+                    int efficiency = Int32.Parse(ex.Substring(3));
+
+                    // Resources=2D; if TL8+, +GG +Belts (min 0)
+                    // per T5.10 Book 3 pp.27
+                    if (TechLevel < 8)
+                        ErrorUnless(resources.InRange(2, 12),
+                            $"(Ex) Resources={resources} out of range; should be: 2D if TL(={TechLevel})<8");
+                    else
+                        ErrorUnless(resources.InRange(2 + GasGiants + Belts, 12 + GasGiants + Belts),
+                            $"(Ex) Resources={resources} out of range; should be: 2D + GG(={GasGiants}) + Belts(={Belts}) if TL(={TechLevel})=8+");
+
+                    // Labor=Pop-1 (min 0)
+                    // per T5.10 Book 3 pp.27
+                    ErrorUnless(labor == Math.Max(0, PopulationExponent - 1),
+                        $"(Ex) Labor={labor} incorrect; should be: Pop(={PopulationExponent}) - 1");
+
+                    // Infrastructure=
+                    //   If Pop=0 then 0
+                    //   If Pop=123 then Ix (min 0)
+                    //   If Pop=456 then 1D+Ix (min 0)
+                    //   If Pop=7+ then 2D+Ix (min 0)
+                    // per T5.10 Book 3 pp.27
+                    int pop = PopulationExponent;
+                    if (pop == 0)
+                        ErrorUnless(infrastructure == 0,
+                            $"(Ex) Infrastructure={infrastructure} incorrect; should be: 0 if Pop=0");
+                    else if (pop.InRange(1, 3))
+                        ErrorUnless(infrastructure == Math.Max(0, imp),
+                            $"(Ex) Infrastructure={infrastructure} incorrect; should be: Imp(={imp}), min 0, if Pop=123");
+                    else if (pop.InRange(4, 6))
+                        ErrorUnless(infrastructure.InRange(Math.Max(0, imp + 1), Math.Max(0, imp + 6)),
+                            $"(Ex) Infrastructure={infrastructure} out of range; should be: Imp(={imp}) + 1D, min 0, for Pop=456");
+                    else // pop >= 7
+                        ErrorUnless(infrastructure.InRange(Math.Max(0, imp + 2), Math.Max(0, imp + 12)),
+                            $"(Ex) Infrastructure={infrastructure} out of range; should be: Imp(={imp}) + 2D, min 0, for Pop=7+");
+
+                    // Efficiency=Flux
+                    // per T5.10 Book 3 pp.27
+                    ErrorUnless(efficiency.InRange(-5, 5),
+                        $"(Ex) Efficiency={efficiency} out of range; should be: Flux");
+
+                    ErrorIf(efficiency == 0,
+                        $"(Ex) Efficiency=0 should be coded as +1 (T5SS, implied by T5.10 Book 3 pp.18)");
+
+                    // Resource Units
+                    if (ResourceUnits != null)
+                    {
+                        int ru = OneIfZero(resources) * OneIfZero(labor) * OneIfZero(infrastructure) * OneIfZero(efficiency);
+                        ErrorUnless(ResourceUnits == ru,
+                            $"Resource Units={ResourceUnits} incorrect, should be (treating 0s as 1s) R(={resources}) * L(={labor}) * I(={infrastructure}) * E(={efficiency}) = {ru}");
+                    }
+                }
+            }
+
+            // [Cx]
+            if (!string.IsNullOrWhiteSpace(Cultural))
+            {
+                string cx = Cultural?.Replace('[', ' ').Replace(']', ' ').Trim() ?? "";
+                if (cx != "")
+                {
+                    int heterogeneity = SecondSurvey.FromHex(cx[0]);
+                    int acceptance = SecondSurvey.FromHex(cx[1]);
+                    int strangeness = SecondSurvey.FromHex(cx[2]);
+                    int symbols = SecondSurvey.FromHex(cx[3]);
+
+                    if (PopulationExponent == 0)
+                    {
+                        ErrorUnless(heterogeneity == 0,
+                            $"[Cx] Heterogeneity={heterogeneity} incorrect; should be: 0 if Pop=0");
+                        ErrorUnless(acceptance == 0,
+                            $"[Cx] Acceptance={acceptance} incorrect; should be: 0 if Pop=0");
+                        ErrorUnless(strangeness == 0,
+                            $"[Cx] Strangeness={strangeness} incorrect; should be: 0 if Pop=0");
+                        ErrorUnless(symbols == 0,
+                            $"[Cx] Symbols={symbols} incorrect; should be: 0 if Pop=0");
+                    }
+                    else
+                    {
+                        ErrorUnless(heterogeneity.InRange(Math.Max(1, PopulationExponent - 5), Math.Max(1, PopulationExponent + 5)),
+                            $"[Cx] Heterogeneity={heterogeneity} out of range; should be: Pop(={PopulationExponent}) + Flux");
+                        ErrorUnless(acceptance.InRange(Math.Max(1, PopulationExponent + imp - 5), Math.Max(1, PopulationExponent + imp + 5)),
+                            $"[Cx] Acceptance={acceptance} incorrect; should be: Pop(={PopulationExponent}) + Imp(={imp}) + Flux");
+                        ErrorUnless(strangeness.InRange(Math.Max(1, 5 - 5), Math.Max(1, 5 + 5)),
+                            $"[Cx] Strangeness={strangeness} out of range; should be: Flux + 5");
+                        ErrorUnless(symbols.InRange(Math.Max(1, TechLevel - 5), Math.Max(1, TechLevel + 5)),
+                            $"[Cx] Symbols={symbols} out of range; should be: TL(={TechLevel}) + Flux");
+                    }
                 }
             }
 
             // Ownership
-            if (Government == 6 && !(HasCodePrefix("O:") || HasCodePrefix("Mr") || HasCode("Re") || HasCode("Px")))
-                errors.Warning("Gov 6 missing O:/Mr/Re/Px", lineNumber, line);
+            if (Government == 6 && !(HasCodePrefix("O:") || HasCodePrefix("Mr") ||
+                HasCode("Re") || HasCode("Px") || HasCode("Pe") || HasCode("Cy")))
+                Error("Gov 6 (captive/colony) missing one of: O:/Mr/Re/Px");
+
+            // PBG
+            ErrorIf(SecondSurvey.FromHex(PBG[PBG_P]) == 0 && PopulationExponent > 0,
+                $"PBG: Pop Multiplier = 0 but Population Exponent (={PopulationExponent}) > 0");
+            ErrorIf(SecondSurvey.FromHex(PBG[PBG_P]) > 0 && PopulationExponent == 0,
+                $"PBG: Pop Exponent = 0 but Population Multiplier (={PBG[PBG_P]}) > 0");
+
+            // Worlds
+            int min_worlds = 1 + GasGiants + Belts;
+            ErrorIf(Worlds != 0 && !((int)Worlds).InRange(min_worlds + 2, min_worlds + 12),
+                $"Worlds: W={Worlds} out of range, should be MW (1) + GasGiants ({GasGiants}) + Belts ({Belts}) + 2D");
+
+            // TODO: Nobility
         }
 
-        private string routes = null;
-        [XmlIgnore,JsonIgnore]
-        public string Routes
+        private int CalculateImportance()
+        {
+            // Per T5.10
+            int imp = 0;
+            if ("AB".Contains(Starport)) ++imp;
+            if ("DEX".Contains(Starport)) --imp;
+            if (TechLevel >= 10) ++imp;
+            if (TechLevel >= 16) ++imp;
+            if (TechLevel <= 8) --imp;
+            if (PopulationExponent <= 6) --imp;
+            if (PopulationExponent >= 9) ++imp;
+            if (IsAg) ++imp;
+            if (IsRi) ++imp;
+            if (IsIn) ++imp;
+
+            // If Naval Base AND Scout Base (or equivalent):
+            if (HasNavalBase() && HasOtherServiceBase()) ++imp;
+            // If Way Station (or equivalent):
+            if (HasServiceSpecialBase()) ++imp;
+            // Special case: Aslan Clan AND Tlaukhu base:
+            if (HasBase('R') && HasBase('T')) ++imp;
+
+            return imp;
+        }
+
+        private string? routes = null;
+        [XmlIgnore, JsonIgnore]
+        public string? Routes
         {
             get
             {
-                if (routes == null)
+                if (routes == null && Sector != null)
                     routes = string.Join(" ", Sector.RoutesForWorld(this).OrderBy(s => s));
                 return routes;
             }

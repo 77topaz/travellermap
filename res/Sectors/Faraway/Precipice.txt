@@ -1,28 +1,3 @@
-# Precipice Subsector
-# "Disappearance on Aramat"
-# Copyright (C) 1984 Grenadier Models
-#
-# Pesek Subsector & Cyris, John M. Ford, "Geria Transfer", JTAS 10
-#
-# Sturray, Marcus L. Rowland, "The Thing In the Depths", JTAS 22
-
-# Subsector A: Precipice
-# Subsector B:
-# Subsector C:
-# Subsector D:
-# Subsector E: Pesek
-# Subsector F:
-# Subsector G:
-# Subsector H:
-# Subsector I:
-# Subsector J:
-# Subsector K:
-# Subsector L:
-# Subsector M:
-# Subsector N:
-# Subsector O:
-# Subsector P:
-
 Hex  Name                 UWP       Remarks              {Ix} (Ex) [Cx] N B  Z PBG W A  Stellar
 ---- -------------------- --------- -------------------- ---- ---- ---- - -- - --- - -- -------
 0103 Beck                 B767884-A In                                  - -  - 101   Na
@@ -48,5 +23,36 @@ Hex  Name                 UWP       Remarks              {Ix} (Ex) [Cx] N B  Z P
 0707 Aramat               E484000-0                                     - -  - 001   -- G2 V
 0804 Troppau              BA96671-9 In                                  - -  - 101   Na
 0805 Tappon               A866991-8 In                                  - -  - 101   Na
-0511 Cyris                B769653-A Ag                                  - -  - 001   Na
-0314 Sturray              C7A9125-A                                     - -  - 000   Na M5 V
+0905 Indeep               AAF2527-9 Mi                                  - -  - 512   Na
+0906 Sainte Foy           B756733-7 Mi                                  - -  A 101   Na
+0908 Sharmun              X86787A-5                                     - -  R 101   Na
+1005 Malefolge            B787699-7                                     - -  A 101   Na
+1009 Ranther              D539598-5                                     - -  - 100   Na
+1106 Pynchan              C656795-9                                     - -  - 101   Na
+1108 Vendetierre          C759685-8                                     - -  - 101   Na
+1204 Gretle               D655745-5                                     - -  - 101   Na
+1205 Launfall             C765759-9                                     - -  - 101   Na
+1306 Beauville            A867744-C                                     - N  - 101   Cs
+1308 Purfyr               C867645-A Ag                                  - -  - 100   Na
+1310 Palantir             D886644-9                                     - -  - 101   Na
+1405 Requet               D766734-5                                     - -  - 101   Na
+1406 Hunan                C7877B8-7                                     - -  - 101   Na
+1408 Diatrema             C645777-7                                     - -  - 101   Na
+1506 Grizel               C768400-6 Ag                                  - -  A 101   Na
+1507 Diavlo               A962946-D                                     - -  - 501   Na F5 V
+1508 Gatina               C765876-7                                     - -  - 101   Na
+1509 Enoc                 C675867-6                                     - -  - 101   Na
+1510 Bentoc               D868774-6                                     - -  - 101   Na
+1605 Hipper               D656771-5                                     - -  - 100   Na
+1606 Taldor               C866413-8                                     - -  - 101   Na
+1607 Lorelei              C668742-7 Ag                                  - -  - 101   Na
+1706 Montauk              B768577-A                                     - -  - 101   Na
+1709 Blukjere             C6788DA-7                                     - -  - 101   Na
+1907 Pavlov's Dog         B74566B-4 O:1908                              - -  - 100   Na
+1908 Mmorden              B9736CA-6                                     - -  - 100   Na
+2410 Malen                X887854-7                                     - -  R 111   Na
+0314 Sturray              C7A9125-A                                     - -  - 100   Na M5 V
+0511 Cyris                B769653-A Ag                                  - -  - 101   Na
+1414 Koa                  D5666D4-9                                     - -  A 103   Na
+1516 Shangrila            C668457-6 Ag Ni                               - -  - 102   Na G7 V
+1619 Syleria              X765400-2                                     - -  R 100   Na

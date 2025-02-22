@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <title>Re-Stellarator - Traveller Map</title>
 <meta charset="utf-8">
-<link rel="shortcut icon" href="../favicon.ico">
-<script src="https://cdn.rawgit.com/inexorabletash/polyfill/v0.1.29/polyfill.min.js"></script>
+<link rel="shortcut icon" href="../favicon.svg">
 <script src="serialize.js"></script>
-<link rel="stylesheet" href="../site.css?update=2015-08-30">
+<link rel="stylesheet" href="../site.css?update=2022-09-10T10:37:44">
 <style>
   #in, #out {
     width: 1000px; height: 300px;
@@ -27,58 +26,20 @@ Conversions:
 <br><button id=go>Go</button><br>
 <textarea id=out>
 </textarea>
-
+<script src="restellarator.js"></script>
 <script>
-function $(s) { return document.querySelector(s); }
+const $ = s => document.querySelector(s);
 
 function fix(world) {
   // Stellar
-  var key = ['Stellar', 'Stars'].filter(function(key) { return key in world; })[0];
-  world[key] = fixStellar(world[key]);
+  const key = ['Stellar', 'Stars'].filter(key => key in world)[0];
+  const current = world[key];
+  world[key] = Restellarator.reorder(current ? Restellarator.fix(current) : Restellarator.generate());
 }
 
-function fixStellar(s) {
-  var stars = [], m;
-  while (m = /^([OBAFGKM][0-9] ?(?:Ia|Ib|II|III|IV|V|VI|VII|D)|[OAFGKML] ?D|D|BD|BH|D[OBAFGKM])\b\s*/.exec(s)) {
-    stars.push(m[1]);
-    s = s.substring(m[0].length);
-  }
-  if (s) console.log('leftover: ' + s);
-  stars = stars.map(function(star, index) {
-    if (m = /^(D)([OBAFGKM])$/.exec(star))
-      star = m[2] + m[1];
-
-    if (m = (/^([OBAFGKM][0-9]) ?(Ia|Ib|II|III|IV|V|VI|VII|D)\b/.exec(star) || /^([OAFGKML]) ?(D)/.exec(star))) {
-      var spec = m[1], lum = m[2];
-
-      // VII -> D
-      if (lum === 'VII')
-        lum = 'D';
-
-      // D -> V, if not the last star (unless only star)
-      if (lum === 'D' && (index < stars.length - 1 || stars.length === 1)) {
-        lum = 'V';
-      }
-
-      // LD -> MD
-      if (spec === 'L')
-        spec = 'M';
-
-      // Random fraction (for MD, etc)
-      if (spec.length === 1)
-        spec += String(Math.floor(Math.random() * 10));
-
-      star = lum === 'D' ? lum : spec + ' ' + lum;
-    }
-
-    return star;
-  });
-  return stars.join(' ');
-}
-
-$('#go').addEventListener('click', function() {
+$('#go').addEventListener('click', () => {
   try {
-    var data = parse($('#in').value);
+    const data = parse($('#in').value);
 
     data.worlds.forEach(fix);
 
@@ -86,6 +47,7 @@ $('#go').addEventListener('click', function() {
   } catch (ex) {
     alert('Error encountered:\n\n' + ex.message +
           '\n\nReport to the author (include the input data).');
+    console.log(ex);
   }
 });
 

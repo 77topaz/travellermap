@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<Sector Abbreviation="Gush" Tags="Official">
+<Sector Abbreviation="Gush" Tags="Unreviewed">
   <Y>0</Y>
   <X>-2</X>
   <Name>Gushemege</Name>
@@ -18,7 +18,6 @@
 
     ]]>
   </Credits>
-  <DataFile Milieu="M1201" Type="TabDelimited">Gushemege.tab</DataFile>
   <Subsectors>
     <Subsector Index="A">Riften</Subsector>
     <Subsector Index="B">Khiira</Subsector>
@@ -44,7 +43,6 @@
 
   <Allegiances>
     <Allegiance Code="Wi">Wilds</Allegiance>
-    <Allegiance Code="">Barren</Allegiance>
     <Allegiance Code="Ut">Usdiki Trade Alliance</Allegiance>
   </Allegiances>
 

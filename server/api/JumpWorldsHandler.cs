@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿#nullable enable
+using Maps.Utilities;
+using System.Collections.Generic;
 using System.Web;
 using System.Xml.Serialization;
 
@@ -6,39 +8,35 @@ namespace Maps.API
 {
     internal class JumpWorldsHandler : DataHandlerBase
     {
-        protected override string ServiceName { get { return "jumpworlds"; } }
-        protected override DataResponder GetResponder(HttpContext context)
-        {
-            return new Responder(context);
-        }
+        protected override DataResponder GetResponder(HttpContext context) => new Responder(context);
+
         private class Responder : DataResponder
         {
             public Responder(HttpContext context) : base(context) { }
-            public override string DefaultContentType { get { return System.Net.Mime.MediaTypeNames.Text.Xml; } }
-            public override void Process()
+            public override string DefaultContentType => ContentTypes.Text.Xml;
+
+            public override void Process(ResourceManager resourceManager)
             {
                 // NOTE: This (re)initializes a static data structure used for 
                 // resolving names into sector locations, so needs to be run
                 // before any other objects (e.g. Worlds) are loaded.
-                ResourceManager resourceManager = new ResourceManager(Context.Server);
+                SectorMap.Milieu map = SectorMap.ForMilieu(GetStringOption("milieu"));
 
                 //
                 // Jump
                 //
-                int jump = Util.Clamp(GetIntOption("jump", 6), 0, 12);
+                int jump = GetIntOption("jump", 6).Clamp(0, 12);
 
                 //
                 // Coordinates
                 //
-                SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, GetStringOption("milieu"));
                 Location loc = Location.Empty;
 
                 if (HasOption("sector") && HasOption("hex"))
                 {
-                    string sectorName = GetStringOption("sector");
+                    string sectorName = GetStringOption("sector")!;
                     int hex = GetIntOption("hex", 0);
-                    Sector sector = map.FromName(sectorName);
-                    if (sector == null)
+                    Sector sector = map.FromName(sectorName) ??
                         throw new HttpError(404, "Not Found", $"The specified sector '{sectorName}' was not found.");
 
                     loc = new Location(sector.Location, hex);
@@ -52,7 +50,7 @@ namespace Maps.API
 
                 var data = new Results.JumpWorldsResult();
                 data.Worlds.AddRange(selector.Worlds);
-                SendResult(Context, data);
+                SendResult(data);
             }
         }
     }
@@ -60,6 +58,7 @@ namespace Maps.API
 
 namespace Maps.API.Results
 {
+#nullable disable
     [XmlRoot(ElementName = "JumpWorlds")]
     // public for XML serialization
     public class JumpWorldsResult
@@ -67,4 +66,5 @@ namespace Maps.API.Results
         [XmlElement("World")]
         public List<World> Worlds { get; } = new List<World>();
     }
+#nullable restore
 }

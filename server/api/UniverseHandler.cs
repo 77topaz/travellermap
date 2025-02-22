@@ -1,4 +1,6 @@
-﻿using Maps.API.Results;
+﻿#nullable enable
+using Maps.API.Results;
+using Maps.Utilities;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -12,29 +14,24 @@ namespace Maps.API
     /// </summary>
     internal class UniverseHandler : DataHandlerBase
     {
-        protected override string ServiceName { get { return "universe"; } }
+        protected override DataResponder GetResponder(HttpContext context) => new Responder(context);
 
-        protected override DataResponder GetResponder(HttpContext context)
-        {
-            return new Responder(context);
-        }
         private class Responder : DataResponder
         {
             public Responder(HttpContext context) : base(context) { }
-            public override string DefaultContentType { get { return System.Net.Mime.MediaTypeNames.Text.Xml; } }
-            public override void Process()
-            {
-                ResourceManager resourceManager = new ResourceManager(Context.Server);
+            public override string DefaultContentType => ContentTypes.Text.Xml;
 
+            public override void Process(ResourceManager resourceManager)
+            {
                 // NOTE: This (re)initializes a static data structure used for 
                 // resolving names into sector locations, so needs to be run
                 // before any other objects (e.g. Worlds) are loaded.
-                SectorMap map = SectorMap.GetInstance(resourceManager);
+                SectorMap map = SectorMap.GetInstance();
 
                 // Filter parameters
-                string milieu = GetStringOption("milieu") ?? GetStringOption("era");
+                string? milieu = GetStringOption("milieu") ?? GetStringOption("era");
                 bool requireData = GetBoolOption("requireData", defaultValue: false);
-                string[] tags = GetStringsOption("tag");
+                string[]? tags = GetStringsOption("tag");
 
                 UniverseResult data = new UniverseResult();
                 foreach (Sector sector in map.Sectors)
@@ -53,7 +50,27 @@ namespace Maps.API
 
                     data.Sectors.Add(new UniverseResult.SectorResult(sector));
                 }
-                SendResult(Context, data);
+                SendResult(data);
+            }
+        }
+    }
+    internal class MilieuxCodesHandler : DataHandlerBase
+    {
+        protected override DataResponder GetResponder(HttpContext context) => new Responder(context);
+
+        private class Responder : DataResponder
+        {
+            public Responder(HttpContext context) : base(context) { }
+            public override string DefaultContentType => ContentTypes.Text.Xml;
+
+            public override void Process(ResourceManager resourceManager)
+            {
+                // NOTE: This (re)initializes a static data structure used for 
+                // resolving names into sector locations, so needs to be run
+                // before any other objects (e.g. Worlds) are loaded.
+                SectorMap map = SectorMap.GetInstance();
+
+                SendResult(map.GetMilieux().Select(code => new Results.Milieu(code)).ToList());
             }
         }
     }
@@ -61,6 +78,7 @@ namespace Maps.API
 
 namespace Maps.API.Results
 {
+#nullable disable
     [XmlRoot(ElementName = "Universe")]
     // public for XML serialization
     public class UniverseResult
@@ -78,18 +96,34 @@ namespace Maps.API.Results
             public SectorResult(Sector sector) { this.sector = sector; }
             private Sector sector;
 
-            public int X { get { return sector.X; } set { } }
-            public int Y { get { return sector.Y; } set { } }
-            public string Milieu { get { return sector.CanonicalMilieu; } set { } }
+            public int X { get => sector.X; set { } }
+            public int Y { get => sector.Y; set { } }
+            public string Milieu { get => sector.CanonicalMilieu; set { } }
 
             [XmlAttribute]
-            public string Abbreviation { get { return sector.Abbreviation; } set { } }
+            public string Abbreviation { get => sector.Abbreviation; set { } }
 
             [XmlAttribute]
-            public string Tags { get { return sector.TagString; } set { } }
+            public string Tags { get => sector.TagString; set { } }
 
             [XmlElement("Name")]
-            public List<Name> Names { get { return sector.Names; } set { } }
+            public List<Name> Names { get => sector.Names; set { } }
         }
     }
+
+    public class Milieu
+    {
+        public Milieu() { }
+        public Milieu(string code)
+        {
+            Code = code;
+            IsDefault = code == SectorMap.DEFAULT_MILIEU;
+        }
+
+        public string Code { get; set; }
+        public bool IsDefault { get; set; }
+    }
+
+
+#nullable restore
 }

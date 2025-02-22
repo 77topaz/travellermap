@@ -1,14 +1,18 @@
-﻿using PdfSharp.Drawing;
+﻿#nullable enable
+using PdfSharp.Drawing;
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
 
-namespace Maps.Rendering
+namespace Maps.Graphics
 {
+#pragma warning disable IDE1006 // Naming Styles
     internal interface AbstractGraphics : IDisposable
+#pragma warning restore IDE1006 // Naming Styles
     {
         SmoothingMode SmoothingMode { get; set; }
-        Graphics Graphics { get; }
+        System.Drawing.Graphics? Graphics { get; }
         bool SupportsWingdings { get; }
 
         void ScaleTransform(float scaleXY);
@@ -40,16 +44,17 @@ namespace Maps.Rendering
         void DrawImage(AbstractImage image, float x, float y, float width, float height);
         void DrawImageAlpha(float alpha, AbstractImage image, RectangleF targetRect);
 
-        SizeF MeasureString(string text, Font font);
-        void DrawString(string s, Font font, AbstractBrush brush, float x, float y, StringAlignment format);
+        SizeF MeasureString(string text, AbstractFont font);
+        void DrawString(string s, AbstractFont font, AbstractBrush brush, float x, float y, StringAlignment format);
 
         AbstractGraphicsState Save();
         void Restore(AbstractGraphicsState state);
     }
 
-    internal abstract class AbstractGraphicsState : IDisposable {
+    internal abstract class AbstractGraphicsState : IDisposable
+    {
 
-        private AbstractGraphics g;
+        private AbstractGraphics? g;
 
         protected AbstractGraphicsState(AbstractGraphics graphics)
         {
@@ -58,7 +63,7 @@ namespace Maps.Rendering
 
         public void Restore()
         {
-            g.Restore(this);
+            g!.Restore(this);
             g = null;
         }
 
@@ -79,22 +84,28 @@ namespace Maps.Rendering
     {
         public XMatrix matrix;
 
-        public AbstractMatrix(float m11, float m12, float m21, float m22, float dx, float dy) { matrix = new XMatrix(m11, m12, m21, m22, dx, dy); }
+        public AbstractMatrix(float m11, float m12, float m21, float m22, float dx, float dy)
+        {
+            matrix = new XMatrix(m11, m12, m21, m22, dx, dy);
+        }
 
-        public float M11 { get { return (float)matrix.M11; } }
-        public float M12 { get { return (float)matrix.M12; } }
-        public float M21 { get { return (float)matrix.M21; } }
-        public float M22 { get { return (float)matrix.M22; } }
-        public float OffsetX { get { return (float)matrix.OffsetX; } }
-        public float OffsetY { get { return (float)matrix.OffsetY; } }
+        public float M11 => (float)matrix.M11;
+        public float M12 => (float)matrix.M12;
+        public float M21 => (float)matrix.M21;
+        public float M22 => (float)matrix.M22;
+        public float OffsetX => (float)matrix.OffsetX;
+        public float OffsetY => (float)matrix.OffsetY;
 
         public void Invert() { matrix.Invert(); }
         public void RotatePrepend(float angle) { matrix.RotatePrepend(angle); }
         public void ScalePrepend(float sx, float sy) { matrix.ScalePrepend(sx, sy); }
         public void TranslatePrepend(float dx, float dy) { matrix.TranslatePrepend(dx, dy); }
+        public void Prepend(AbstractMatrix m) { matrix.Prepend(m.matrix); }
 
-        public XMatrix XMatrix { get { return matrix; } }
-        public Matrix Matrix { get { return matrix.ToGdiMatrix(); } }
+        public XMatrix XMatrix => matrix;
+        public Matrix Matrix => matrix.ToGdiMatrix();
+
+        public static readonly AbstractMatrix Identity = new AbstractMatrix(1, 0, 0, 1, 0, 0);
     }
 
 
@@ -103,18 +114,34 @@ namespace Maps.Rendering
     internal class AbstractImage
     {
         private string path;
-        private string url;
-        private Image image;
-        private XImage ximage;
+        private Image? image;
+        private XImage? ximage;
 
-        public string Url { get { return url; } }
+        public string Url { get; }
+
+        private string? dataUrl;
+        public string DataUrl
+        {
+            get
+            {
+                if (dataUrl == null)
+                {
+                    string contentType = Utilities.ContentTypes.TypeForPath(path);
+                    // TODO: Use reader with FileShare.Read
+                    byte[] bytes = File.ReadAllBytes(path);
+                    dataUrl = "data:" + contentType + ";base64," + Convert.ToBase64String(bytes, Base64FormattingOptions.None);
+                }
+                return dataUrl;
+            }
+        }
+
         public XImage XImage
         {
             get
             {
                 lock (this)
                 {
-                    return ximage ?? (ximage = XImage.FromGdiPlusImage(Image));
+                    return ximage ??= XImage.FromGdiPlusImage(Image);
                 }
             }
         }
@@ -124,7 +151,13 @@ namespace Maps.Rendering
             {
                 lock (this)
                 {
-                    return image ?? (image = Image.FromFile(path));
+                    if (image == null)
+                    {
+                        // Use a stream since Image.FromFile(path) locks the file on disk.
+                        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        image = Image.FromStream(stream);
+                    }
+                    return image;
                 }
             }
         }
@@ -132,7 +165,7 @@ namespace Maps.Rendering
         public AbstractImage(string path, string url)
         {
             this.path = path;
-            this.url = url;
+            this.Url = url;
         }
     }
 
@@ -140,15 +173,14 @@ namespace Maps.Rendering
     {
         public Color Color { get; set; }
         public float Width { get; set; }
-        public DashStyle DashStyle { get; set; }
-        public float[] CustomDashPattern { get; set; }
+        public DashStyle DashStyle { get; set; } = DashStyle.Solid;
+        public float[]? CustomDashPattern { get; set; }
 
         public AbstractPen() { }
         public AbstractPen(Color color, float width = 1)
         {
             Color = color;
             Width = width;
-            DashStyle = DashStyle.Solid;
         }
     }
 
@@ -160,6 +192,37 @@ namespace Maps.Rendering
         {
             Color = color;
         }
+    }
+
+    internal class AbstractFont
+    {
+        // Returns the families list passed to the constructor.
+        public string Families { get; }
+
+        // Create a font, using comma-separated fallbacks, e.g. "Calibri,Arial"; for local rendering
+        // each is tried in turn and an internal Font is created. The original string can be used for
+        // remote rendering, e.g. in SVG output.
+        public AbstractFont(string families, float emSize, FontStyle style, GraphicsUnit units)
+        {
+            Families = families;
+            foreach (var family in families.Split(new char[] { ',' }))
+            {
+                Font = new Font(family, emSize, style, units);
+                if (Font.Name == family)
+                    return;
+            }
+            throw new ApplicationException("No matching font family");
+        }
+
+        // Access to the underlying System.Drawing.Font, and properties.
+        public Font Font { get; set; }
+        public FontStyle Style => Font.Style;
+        public float Size => Font.Size;
+        public bool Italic => Font.Italic;
+        public bool Bold => Font.Bold;
+        public bool Underline => Font.Underline;
+        public bool Strikeout => Font.Strikeout;
+        public FontFamily FontFamily => Font.FontFamily;
     }
 
     internal enum StringAlignment

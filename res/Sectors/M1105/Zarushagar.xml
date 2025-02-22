@@ -12,12 +12,11 @@
 
              It was refined by Greg Videll. Portions appear in
              <cite>The Travellers Digest</cite> and the
-             <cite>MegaTraveller Referee’s Gaming Kit</cite> (Digest
+             <cite>MegaTraveller Referee's Gaming Kit</cite> (Digest
              Group Publications, 1989).
 
     ]]>
   </Credits>
-  <DataFile Source="Traveller 5 Second Survey" Author="Greg Videll, Martin J. Dougherty" Milieu="M1105" Type="TabDelimited">Zarushagar.tab</DataFile>
   <Subsectors>
     <Subsector Index="A">Ibaru</Subsector>
     <Subsector Index="B">Triton</Subsector>
@@ -34,7 +33,7 @@
     <Subsector Index="M">Void</Subsector>
     <Subsector Index="N">Allegro</Subsector>
     <Subsector Index="O">Rhamsteppe</Subsector>
-    <Subsector Index="P">Mongrabi</Subsector>
+    <Subsector Index="P">Mongrebi</Subsector>
   </Subsectors>
   <Routes>
     <Route Start="1727" End="1528" Source="TD #21" />

@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -7,18 +8,22 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace Maps.Rendering
+namespace Maps.Graphics
 {
     internal class SVGGraphics : AbstractGraphics
     {
-        private const string NumberFormat = "G5";
+        // G6 precision is needed for rendering far away from Charted Space, e.g. Legend
+        private const string NumberFormat = "G6";
+        private static string F(float f) => f.ToString(NumberFormat);
 
         private class Element
         {
-            public string name;
-            public string content;
+#pragma warning disable IDE1006 // Naming Styles
+            public string name { get; set; }
+            public string? content;
             public Dictionary<string, string> attributes = new Dictionary<string, string>();
             public List<Element> children = new List<Element>();
+#pragma warning restore IDE1006 // Naming Styles
 
             public Element(string name) { this.name = name; }
 
@@ -54,20 +59,32 @@ namespace Maps.Rendering
                 b.Write(">");
             }
 
-            public bool Has(string name) { return attributes.ContainsKey(name); }
-            public string Get(string name) { return attributes[name]; }
+            public bool Has(string name) => attributes.ContainsKey(name);
+            public string Get(string name) => attributes[name];
             public void Set(string name, string value) { attributes[name] = value; }
-            public void Set(string name, float value) { attributes[name] = value.ToString(NumberFormat, CultureInfo.InvariantCulture); }
-            public void Set(string name, Color color) {
+            public void Set(string name, float value) { attributes[name] = F(value); }
+            public void Set(string name, Color color)
+            {
                 if (color.IsEmpty || color.A == 0)
-                    return; // Inherits "None" from root
+                {
+                    attributes[name] = "none";
+                }
                 else if (color.A < 255)
-                    attributes[name] = $"rgba({color.R},{color.G},{color.B},{color.A / 255f:G5})";
+                {
+                    attributes[name] = ColorTranslator.ToHtml(color);
+                    attributes[name + "-opacity"] = (color.A / 255f).ToString("G2");
+                }
                 else
-                    attributes[name] = $"rgb({color.R},{color.G},{color.B})";
+                {
+                    attributes[name] = ColorTranslator.ToHtml(color);
+                    attributes.Remove(name + "-opacity");
+                }
             }
 
-            public void Apply(AbstractPen pen)
+            // Helpers for common attributes
+            public string Id { get => Get("id"); set => Set("id", value); }
+
+            public void Apply(AbstractPen? pen)
             {
                 if (pen == null)
                 {
@@ -99,29 +116,30 @@ namespace Maps.Rendering
                             if (pen.CustomDashPattern == null)
                                 throw new ApplicationException("Custom dash style specified but no pattern set");
                             Set("stroke-dasharray",
-                                string.Join(" ", pen.CustomDashPattern.Select(w => (w * pen.Width).ToString(NumberFormat))));
+                                string.Join(" ", pen.CustomDashPattern.Select(w => F(w * pen.Width))));
                             break;
                     }
                 }
             }
-            public void Apply(AbstractBrush brush)
+            public void Apply(AbstractBrush? brush)
             {
                 Set("fill", brush?.Color ?? Color.Empty);
             }
-            public void Apply(AbstractPen pen, AbstractBrush brush)
+            public void Apply(AbstractPen? pen, AbstractBrush? brush)
             {
                 Apply(pen);
                 Apply(brush);
             }
 
-            public int NodeCount { get { return 1 + children.Sum(c => c.NodeCount); } }
+            public int NodeCount => 1 + children.Sum(c => c.NodeCount);
         }
-        
+
         private class ElementNames
         {
             private ElementNames() { }
 
             public const string DEFS = "defs";
+            public const string USE = "use";
             public const string CLIPPATH = "clipPath";
 
             public const string G = "g";
@@ -143,7 +161,7 @@ namespace Maps.Rendering
             private float lastY = 0;
             private bool used = false;
 
-            public override string ToString() { return b.ToString().Trim(); }
+            public override string ToString() => b.ToString().Trim();
 
             public PathBuilder() { }
 
@@ -151,12 +169,12 @@ namespace Maps.Rendering
             {
                 if (!used)
                 {
-                    b.Append($"M{x:G5},{y:G5}");
+                    b.Append($"M{F(x)},{F(y)}");
                     used = true;
                 }
                 else
                 {
-                    b.Append($"m{x - lastX:G5},{y - lastY:G5}");
+                    b.Append($"m{F(x - lastX)},{F(y - lastY)}");
                 }
                 lastX = x;
                 lastY = y;
@@ -165,20 +183,20 @@ namespace Maps.Rendering
             {
                 if (!used)
                 {
-                    b.Append($"L{x:G5},{y:G5}");
+                    b.Append($"L{F(x)},{F(y)}");
                     used = true;
                 }
                 else if (x == lastX)
                 {
-                    b.Append($"v{y - lastY:G5}");
+                    b.Append($"v{F(y - lastY)}");
                 }
                 else if (y == lastY)
                 {
-                    b.Append($"h{x - lastX:G5}");
+                    b.Append($"h{F(x - lastX)}");
                 }
                 else
                 {
-                    b.Append($"l{x - lastX:G5},{y - lastY:G5}");
+                    b.Append($"l{F(x - lastX)},{F(y - lastY)}");
                 }
                 lastX = x;
                 lastY = y;
@@ -187,12 +205,12 @@ namespace Maps.Rendering
             {
                 if (!used)
                 {
-                    b.Append($"A{rx:G5},{ry:G5},{phi:G5},{arcFlag},{sweepFlag},{x:G5},{y:G5}");
+                    b.Append($"A{F(rx)},{F(ry)},{F(phi)},{arcFlag},{sweepFlag},{F(x)},{F(y)}");
                     used = true;
                 }
                 else
                 {
-                    b.Append($"a{rx:G5},{ry:G5},{phi:G5},{arcFlag},{sweepFlag},{x - lastX:G5},{y - lastY:G5}");
+                    b.Append($"a{F(rx)},{F(ry)},{F(phi)},{arcFlag},{sweepFlag},{F(x - lastX)},{F(y - lastY)}");
                 }
                 lastX = x;
                 lastY = y;
@@ -201,12 +219,12 @@ namespace Maps.Rendering
             {
                 if (!used)
                 {
-                    b.Append($"C,{x1:G5},{y1:G5},{x2:G5},{y2:G5},{x:G5},{y:G5}");
+                    b.Append($"C,{F(x1)},{F(y1)},{F(x2)},{F(y2)},{F(x)},{F(y)}");
                     used = true;
                 }
                 else
                 {
-                    b.Append($"c{x1 - lastX:G5},{y1 - lastY:G5},{x2 - lastX:G5},{y2 - lastY:G5},{x - lastX:G5},{y - lastY:G5}");
+                    b.Append($"c{F(x1 - lastX)},{F(y1 - lastY)},{F(x2 - lastX)},{F(y2 - lastY)},{F(x - lastX)},{F(y - lastY)}");
                 }
                 lastX = x;
                 lastY = y;
@@ -222,46 +240,48 @@ namespace Maps.Rendering
         private void Optimize(Element e)
         {
             // Simplify subtrees first
-            foreach (var child in e.children)
-                Optimize(child);
+            foreach (var ch in e.children)
+                Optimize(ch);
 
             // Remove <g>s with no children
-            e.children.RemoveAll(child => child.name == ElementNames.G && child.children.Count == 0);
+            e.children.RemoveAll(ch => ch.name == ElementNames.G && ch.children.Count == 0);
 
             // Flatten <g> with no properties
             List<Element> c = new List<Element>();
-            foreach (var child in e.children)
+            foreach (var ch in e.children)
             {
-                if (child.name == ElementNames.G && child.attributes.Count == 0)
-                    c.AddRange(child.children);
+                if (ch.name == ElementNames.G && ch.attributes.Count == 0)
+                    c.AddRange(ch.children);
                 else
-                    c.Add(child);
+                    c.Add(ch);
             }
             e.children = c;
-            
+
             // If a <g> has only a single child, merge
-            if (e.name == ElementNames.G && e.children.Count == 1)
+            if (e.name != ElementNames.G || e.children.Count != 1)
+                return;
+
+            var child = e.children.First();
+
+            // Can't merge clip-paths, and clip needs to come before child transform.
+            // TODO: Other exclusive elements?
+            if (e.Has("clip-path") && (child.Has("clip-path") || child.Has("transform")))
+                return;
+
+            e.name = child.name;
+            e.children = child.children;
+            e.content = child.content;
+            foreach (var entry in child.attributes)
             {
-                var child = e.children.First();
-                // TODO: Other exclusive elements?
-                if (!(e.Has("clip-path") && child.Has("clip-path")))
+                if (e.attributes.ContainsKey(entry.Key))
                 {
-                    e.name = child.name;
-                    e.children = child.children;
-                    e.content = child.content;
-                    foreach (var entry in child.attributes)
-                    {
-                        if (e.attributes.ContainsKey(entry.Key))
-                        {
-                            if (entry.Key != "transform")
-                                throw new ApplicationException("Only know how to combine 'transform' attributes");
-                            e.attributes[entry.Key] += " " + entry.Value;
-                        }
-                        else
-                        {
-                            e.attributes[entry.Key] = entry.Value;
-                        }
-                    }
+                    if (entry.Key != "transform")
+                        throw new ApplicationException("Only know how to combine 'transform' attributes");
+                    e.attributes[entry.Key] += " " + entry.Value;
+                }
+                else
+                {
+                    e.attributes[entry.Key] = entry.Value;
                 }
             }
         }
@@ -272,10 +292,12 @@ namespace Maps.Rendering
 
             writer.WriteLine("<?xml version = \"1.0\" encoding=\"utf-8\"?>");
             writer.Write(
-                "<svg version=\"1.1\" baseProfile=\"full\" " + 
+                "<svg version=\"1.1\" baseProfile=\"full\" " +
                 "xmlns=\"http://www.w3.org/2000/svg\" " +
                 "xmlns:xlink=\"http://www.w3.org/1999/xlink\" " +
-                $"width=\"{width}\" height=\"{height}\">");
+                $"width=\"{width}\" height=\"{height}\" " +
+                $"viewBox=\"0 0 {width} {height}\" " +
+                $"clip=\"0 {width} 0 {height}\">");
             if (defs.children.Count > 0)
                 defs.Serialize(writer);
             root.Serialize(writer);
@@ -287,28 +309,25 @@ namespace Maps.Rendering
         private float height;
         private Element root = new Element(ElementNames.G);
         private Element defs = new Element(ElementNames.DEFS);
+        private Dictionary<AbstractImage, string> images = new Dictionary<AbstractImage, string>();
 
         private int def_id = 0;
         private Element AddDefinition(Element element)
         {
-            element.Set("id", "did" + (++def_id).ToString(CultureInfo.InvariantCulture));
+            element.Id = "did" + (++def_id).ToString(CultureInfo.InvariantCulture);
             defs.Append(element);
             return element;
         }
 
         private Stack<Element> stack = new Stack<Element>();
 
-        private Element Current { get { return stack.Peek(); } }
-
+        private Element Current => stack.Peek();
         private Element Open(Element element)
         {
             stack.Push(Current.Append(element));
             return element;
         }
-        private Element Append(Element element)
-        {
-            return Current.Append(element);
-        }
+        private Element Append(Element element) => Current.Append(element);
 
         public SVGGraphics(float width, float height)
         {
@@ -320,10 +339,9 @@ namespace Maps.Rendering
             stack.Push(root);
         }
 
-        Graphics AbstractGraphics.Graphics { get { return null; } }
+        System.Drawing.Graphics? AbstractGraphics.Graphics => null;
         SmoothingMode AbstractGraphics.SmoothingMode { get; set; }
-        public bool SupportsWingdings { get { return false; } }
-
+        public bool SupportsWingdings => false;
         #region Drawing
 
         public void DrawLine(AbstractPen pen, float x1, float y1, float x2, float y2)
@@ -342,7 +360,7 @@ namespace Maps.Rendering
             var path = new PathBuilder();
             path.MoveTo(points[0].X, points[0].Y);
             for (var i = 0; i < points.Length; ++i)
-                    path.LineTo(points[i].X, points[i].Y);
+                path.LineTo(points[i].X, points[i].Y);
             e.Set("d", path.ToString());
             e.Apply(pen, null);
         }
@@ -380,7 +398,7 @@ namespace Maps.Rendering
             e.Apply(pen, null);
         }
 
-        public void DrawPath(AbstractPen pen, AbstractBrush brush, AbstractPath path)
+        public void DrawPath(AbstractPen? pen, AbstractBrush? brush, AbstractPath path)
         {
             var e = Append(new Element(ElementNames.PATH));
             e.Set("d", ToSVG(path));
@@ -394,14 +412,14 @@ namespace Maps.Rendering
             e.Apply(pen, null);
         }
 
-        public void DrawClosedCurve(AbstractPen pen, AbstractBrush brush, PointF[] points, float tension)
+        public void DrawClosedCurve(AbstractPen? pen, AbstractBrush? brush, PointF[] points, float tension)
         {
             var e = Append(new Element(ElementNames.PATH));
             e.Set("d", ToSVG(points, tension, true));
             e.Apply(pen, brush);
         }
 
-        public void DrawRectangle(AbstractPen pen, AbstractBrush brush, float x, float y, float width, float height)
+        public void DrawRectangle(AbstractPen? pen, AbstractBrush? brush, float x, float y, float width, float height)
         {
             var e = Append(new Element(ElementNames.RECT));
             e.Set("x", x);
@@ -411,7 +429,7 @@ namespace Maps.Rendering
             e.Apply(pen, brush);
         }
 
-        public void DrawEllipse(AbstractPen pen, AbstractBrush brush, float x, float y, float width, float height)
+        public void DrawEllipse(AbstractPen? pen, AbstractBrush? brush, float x, float y, float width, float height)
         {
             Element e;
             if (width == height)
@@ -432,25 +450,32 @@ namespace Maps.Rendering
         #endregion
 
         #region Images
+        private string UseImage(AbstractImage image)
+        {
+            if (images.ContainsKey(image))
+                return images[image];
+            var e = AddDefinition(new Element(ElementNames.IMAGE));
+            e.Set("xlink:href", image.DataUrl);
+            e.Set("width", 1);
+            e.Set("height", 1);
+            e.Set("preserveAspectRatio", "none");
+            images[image] = e.Id;
+            return e.Id;
+        }
+
         public void DrawImage(AbstractImage image, float x, float y, float width, float height)
         {
-            var e = Append(new Element(ElementNames.IMAGE));
-            e.Set("x", x);
-            e.Set("y", y);
-            e.Set("width", width);
-            e.Set("height", height);
-            e.Set("xlink:href", image.Url);
+            var e = Append(new Element(ElementNames.USE));
+            e.Set("transform", $"translate({F(x)} {F(y)}) scale({F(width)} {F(height)})");
+            e.Set("xlink:href", "#" + UseImage(image));
         }
 
         public void DrawImageAlpha(float alpha, AbstractImage image, RectangleF targetRect)
         {
-            var e = Append(new Element(ElementNames.IMAGE));
-            e.Set("x", targetRect.X);
-            e.Set("y", targetRect.Y);
-            e.Set("width", targetRect.Width);
-            e.Set("height", targetRect.Height);
+            var e = Append(new Element(ElementNames.USE));
+            e.Set("transform", $"translate({F(targetRect.X)} {F(targetRect.Y)}) scale({F(targetRect.Width)} {F(targetRect.Height)})");
             e.Set("opacity", alpha);
-            e.Set("xlink:href", image.Url);
+            e.Set("xlink:href", "#" + UseImage(image));
         }
         #endregion
 
@@ -465,7 +490,7 @@ namespace Maps.Rendering
             r.Set("height", rect.Height);
 
             var e = Open(new Element(ElementNames.G));
-            e.Set("clip-path", $"url(#{clipPath.Get("id")})");
+            e.Set("clip-path", $"url(#{clipPath.Id})");
         }
 
         public void IntersectClip(AbstractPath path)
@@ -475,24 +500,24 @@ namespace Maps.Rendering
             p.Set("d", ToSVG(path));
 
             var e = Open(new Element(ElementNames.G));
-            e.Set("clip-path", $"url(#{clipPath.Get("id")})");
+            e.Set("clip-path", $"url(#{clipPath.Id})");
         }
         #endregion
 
         #region Text
-        private Graphics scratch;
-        public SizeF MeasureString(string text, Font font)
+        private System.Drawing.Graphics? scratch;
+        public SizeF MeasureString(string text, AbstractFont font)
         {
-            if (scratch == null) scratch = Graphics.FromImage(new Bitmap(1, 1));
-            return scratch.MeasureString(text, font);
+            scratch ??= System.Drawing.Graphics.FromImage(new Bitmap(1, 1));
+            return scratch.MeasureString(text, font.Font);
         }
 
-        public void DrawString(string s, Font font, AbstractBrush brush, float x, float y, StringAlignment alignment)
+        public void DrawString(string s, AbstractFont font, AbstractBrush brush, float x, float y, StringAlignment alignment)
         {
             var e = Append(new Element(ElementNames.TEXT));
             e.content = s;
 
-            e.Set("font-family", font.Name);
+            e.Set("font-family", font.Families);
             e.Set("font-size", font.Size);
             if (font.Italic)
                 e.Set("font-style", "italic");
@@ -523,23 +548,29 @@ namespace Maps.Rendering
         #region Transforms
         public void ScaleTransform(float scaleX, float scaleY)
         {
+            if (scaleX == 1 && scaleY == 1)
+                return;
             var e = Open(new Element(ElementNames.G));
-            e.Set("transform", $"scale({scaleX:G5} {scaleY:G5})");
+            e.Set("transform", $"scale({F(scaleX)} {F(scaleY)})");
         }
         public void TranslateTransform(float dx, float dy)
         {
+            if (dx == 0 && dy == 0)
+                return;
             var e = Open(new Element(ElementNames.G));
-            e.Set("transform", $"translate({dx:G5},{dy:G5})");
+            e.Set("transform", $"translate({F(dx)},{F(dy)})");
         }
         public void RotateTransform(float angle)
         {
+            if (angle == 0)
+                return;
             var e = Open(new Element(ElementNames.G));
-            e.Set("transform", $"rotate({angle:G5})");
+            e.Set("transform", $"rotate({F(angle)})");
         }
         public void MultiplyTransform(AbstractMatrix m)
         {
             var e = Open(new Element(ElementNames.G));
-            e.Set("transform", $"matrix({m.M11:G5},{m.M12:G5},{m.M21:G5},{m.M22:G5},{m.OffsetX:G5},{m.OffsetY:G5})");
+            e.Set("transform", $"matrix({F(m.M11)},{F(m.M12)},{F(m.M21)},{F(m.M22)},{F(m.OffsetX)},{F(m.OffsetY)})");
         }
         #endregion
 
@@ -651,7 +682,7 @@ namespace Maps.Rendering
             PointF last = PointF.Empty;
             PointF lastd = PointF.Empty;
 
-            Func<int, PointF> deriv = (int i) =>
+            PointF deriv(int i)
             {
                 if (closed)
                 {
@@ -666,8 +697,8 @@ namespace Maps.Rendering
                     return new PointF((points[i].X - points[i - 1].X) / a, (points[i].Y - points[i - 1].Y) / a);
                 else
                     return new PointF((points[i + 1].X - points[i - 1].X) / a, (points[i + 1].Y - points[i - 1].Y) / a);
-            };
-               
+            }
+
             for (int i = 0; i < points.Length; ++i)
             {
                 PointF point = points[i];
@@ -695,7 +726,7 @@ namespace Maps.Rendering
                 PointF pointd = deriv(0);
 
                 path.CurveTo(
-                    last.X + lastd.X / 3, last.Y + lastd.Y / 3, 
+                    last.X + lastd.X / 3, last.Y + lastd.Y / 3,
                     point.X - pointd.X / 3, point.Y - pointd.Y / 3,
                     point.X, point.Y);
                 path.Close();
@@ -706,24 +737,23 @@ namespace Maps.Rendering
         #endregion
 
         #region IDisposable Support
-        private bool disposedValue = false; // To detect redundant calls
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    scratch.Dispose();
-                    scratch = null;
-                }
-                disposedValue = true;
-            }
-        }
+        private bool disposed = false;
 
         void IDisposable.Dispose()
         {
             Dispose(true);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposed)
+                return;
+            if (disposing)
+            {
+                scratch?.Dispose();
+                scratch = null;
+            }
+            disposed = true;
         }
         #endregion
     }

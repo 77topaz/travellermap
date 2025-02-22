@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
-using System.Net.Mime;
+﻿#nullable enable
+using Maps.Utilities;
+using System.Collections.Generic;
 
 namespace Maps.Admin
 {
@@ -8,21 +9,19 @@ namespace Maps.Admin
     /// </summary>
     internal class DumpHandler : AdminHandlerBase
     {
-        protected override void Process(System.Web.HttpContext context)
+        protected override void Process(System.Web.HttpContext context, ResourceManager resourceManager)
         {
-            ResourceManager resourceManager = new ResourceManager(context.Server);
-
             // NOTE: This (re)initializes a static data structure used for 
             // resolving names into sector locations, so needs to be run
             // before any other objects (e.g. Worlds) are loaded.
-            SectorMap map = SectorMap.GetInstance(resourceManager);
+            SectorMap map = SectorMap.GetInstance();
 
-            context.Response.ContentType = MediaTypeNames.Text.Plain;
+            context.Response.ContentType = ContentTypes.Text.Plain;
             context.Response.BufferOutput = false;
 
             foreach (Sector sector in map.Sectors)
             {
-                WorldCollection worlds = sector.GetWorlds(resourceManager);
+                WorldCollection? worlds = sector.GetWorlds(resourceManager);
                 if (worlds == null)
                     continue;
                 foreach (World world in worlds)
@@ -55,7 +54,7 @@ namespace Maps.Admin
                     output.Write(',');
                 else
                     first = false;
-                
+
                 if (value.IndexOf(',') == -1 && value.IndexOf('"') == -1)
                 {
                     // plain

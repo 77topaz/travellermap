@@ -1,10 +1,13 @@
-﻿using System;
+﻿#nullable enable
+using Maps.Graphics;
+using Maps.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Linq;
-using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace Maps.Rendering
 {
@@ -36,26 +39,46 @@ namespace Maps.Rendering
             edgeY = (type == PathUtil.PathType.Hex) ? RenderUtil.HexEdgesY : RenderUtil.SquareEdgesY;
         }
 
-        // NOTE: Windings are often used instead of UNICODE equivalents in a common font 
+        public static readonly AbstractPath HexPath = new AbstractPath(
+            new PointF[] {
+                new PointF(-0.5f + RenderUtil.HEX_EDGE, -0.5f),
+                new PointF( 0.5f - RenderUtil.HEX_EDGE, -0.5f),
+                new PointF( 0.5f + RenderUtil.HEX_EDGE, 0),
+                new PointF( 0.5f - RenderUtil.HEX_EDGE, 0.5f),
+                new PointF(-0.5f + RenderUtil.HEX_EDGE, 0.5f),
+                new PointF(-0.5f - RenderUtil.HEX_EDGE, 0),
+                new PointF(-0.5f + RenderUtil.HEX_EDGE, -0.5f),
+            },
+            new byte[] {
+                (byte)PathPointType.Start,
+                (byte)PathPointType.Line,
+                (byte)PathPointType.Line,
+                (byte)PathPointType.Line,
+                (byte)PathPointType.Line,
+                (byte)PathPointType.Line,
+                (byte)(PathPointType.Line | PathPointType.CloseSubpath),
+            });
+
+        // NOTE: Wingdings are often used instead of UNICODE equivalents in a common font
         // because the glyphs are much higher quality.
         // See http://www.alanwood.net/demos/wingdings.html for a good mapping
 
-        private static Dictionary<char, char> DING_MAP = new Dictionary<char, char>
-        {
+        private static ThreadLocal<IReadOnlyDictionary<char, char>> DING_MAP = new ThreadLocal<IReadOnlyDictionary<char, char>>(() =>
+            new Dictionary<char, char> {
             { '\x2666', '\x74' }, // U+2666 (BLACK DIAMOND SUIT)
             { '\x2756', '\x76' }, // U+2756 (BLACK DIAMOND MINUS WHITE X)
             { '\x2726', '\xAA' }, // U+2726 (BLACK FOUR POINTED STAR)
             { '\x2605', '\xAB' }, // U+2605 (BLACK STAR)
             { '\x2736', '\xAC' }, // U+2736 (BLACK SIX POINTED STAR)
-        };
+        });
 
-        public static void DrawGlyph(AbstractGraphics g, Glyph glyph, FontCache styleRes, AbstractBrush brush, float x, float y)
+        public static void DrawGlyph(AbstractGraphics g, Glyph glyph, FontCache styleRes, AbstractBrush brush, PointF pt)
         {
-            Font font;
+            AbstractFont font;
             string s = glyph.Characters;
-            if (g.SupportsWingdings && s.All(c => DING_MAP.ContainsKey(c)))
+            if (g.SupportsWingdings && s.All(c => DING_MAP.Value.ContainsKey(c)))
             {
-                s = string.Join("", s.Select(c => DING_MAP[c]));
+                s = string.Join("", s.Select(c => DING_MAP.Value[c]));
                 font = styleRes.WingdingFont;
             }
             else
@@ -63,7 +86,7 @@ namespace Maps.Rendering
                 font = styleRes.GlyphFont;
             }
 
-            g.DrawString(s, font, brush, x, y, StringAlignment.Centered);
+            g.DrawString(s, font, brush, pt.X, pt.Y, Maps.Graphics.StringAlignment.Centered);
         }
 
         //               |          |
@@ -91,7 +114,7 @@ namespace Maps.Rendering
         // String is positioned relative to x,y according to TextFormat.
         // TextFormat also controls text alignment (left, center, right).
         // Handles embedded newlines.
-        public static void DrawString(AbstractGraphics g, string text, Font font, AbstractBrush brush, float x, float y, TextFormat format = TextFormat.Center)
+        public static void DrawString(AbstractGraphics g, string text, AbstractFont font, AbstractBrush brush, float x, float y, TextFormat format = TextFormat.Center)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return;
@@ -107,7 +130,7 @@ namespace Maps.Rendering
             SizeF boundingSize = new SizeF(sizes.Max(s => s.Width), lineSpacing * sizes.Count());
 
             // Offset from baseline to top-left.
-            y += ascent;
+            y += lineSpacing / 2;
 
             float widthFactor = 0;
             switch (format)
@@ -123,6 +146,7 @@ namespace Maps.Rendering
                     y -= boundingSize.Height;
                     break;
             }
+
             switch (format)
             {
                 case TextFormat.TopCenter:
@@ -137,16 +161,16 @@ namespace Maps.Rendering
                     break;
             }
 
-            Util.ForEachZip(lines, sizes, (line, sz) =>
+            lines.ForEachZip(sizes, (line, sz) =>
             {
-                g.DrawString(line, font, brush, x + widthFactor * sz.Width, y, StringAlignment.Baseline);
+                g.DrawString(line, font, brush, x + widthFactor * sz.Width + sz.Width / 2, y, Graphics.StringAlignment.Centered);
                 y += lineSpacing;
             });
         }
 
         // Used for Sector/Subsector names and labels (borders and explicit).
         // Always centered on given coordinates.
-        public static void DrawLabel(AbstractGraphics g, string text, PointF center, Font font, AbstractBrush brush, LabelStyle labelStyle)
+        public static void DrawLabel(AbstractGraphics g, string text, PointF center, AbstractFont font, AbstractBrush brush, LabelStyle labelStyle)
         {
             using (g.Save())
             {
@@ -157,6 +181,7 @@ namespace Maps.Rendering
 
                 g.TranslateTransform(center.X, center.Y);
                 g.ScaleTransform(1.0f / Astrometrics.ParsecScaleX, 1.0f / Astrometrics.ParsecScaleY);
+
                 g.TranslateTransform(labelStyle.Translation.X, labelStyle.Translation.Y);
                 g.RotateTransform(labelStyle.Rotation);
                 g.ScaleTransform(labelStyle.Scale.Width, labelStyle.Scale.Height);
@@ -177,9 +202,9 @@ namespace Maps.Rendering
             Top,
             Bottom
         }
-        public string Characters { get; set; }
-        public GlyphBias Bias { get; set; }
-        public bool IsHighlighted { get; set; }
+        public string Characters { get; }
+        public GlyphBias Bias { get; }
+        public bool IsHighlighted { get; }
 
         public Glyph(string chars, bool highlight = false)
         {
@@ -189,16 +214,12 @@ namespace Maps.Rendering
         }
         public Glyph(Glyph other, bool highlight = false, GlyphBias bias = GlyphBias.None)
         {
-            this.Characters = other.Characters;
-            this.IsHighlighted = highlight;
-            this.Bias = bias;
+            Characters = other.Characters;
+            IsHighlighted = highlight;
+            Bias = bias;
         }
 
-        public bool IsPrintable
-        {
-            get { return Characters.Length > 0; }
-        }
-
+        public bool IsPrintable => Characters.Length > 0;
         public static readonly Glyph None = new Glyph("");
         public static readonly Glyph Diamond = new Glyph("\x2666"); // U+2666 (BLACK DIAMOND SUIT)
         public static readonly Glyph DiamondX = new Glyph("\x2756"); // U+2756 (BLACK DIAMOND MINUS WHITE X)
@@ -218,13 +239,14 @@ namespace Maps.Rendering
         public static readonly Glyph Zeta = new Glyph("\x0396", highlight: true);
         public static readonly Glyph Eta = new Glyph("\x0397", highlight: true);
         public static readonly Glyph Theta = new Glyph("\x0398", highlight: true);
+        public static readonly Glyph Omicron = new Glyph("\x039F", highlight: true);
 
         // Other Textual
         public static readonly Glyph Prison = new Glyph("P", highlight: true);
         public static readonly Glyph Reserve = new Glyph("R");
         public static readonly Glyph ExileCamp = new Glyph("X");
 
-        // TNE 
+        // TNE
         public static readonly Glyph HiverSupplyBase = new Glyph("\x2297");
         public static readonly Glyph Terminus = new Glyph("\x2297");
         public static readonly Glyph Interface = new Glyph("\x2297");
@@ -236,22 +258,25 @@ namespace Maps.Rendering
             if (rs.Length == 3)
             {
                 char c = rs[2];
-                switch (c)
+                glyph = c switch
                 {
-                    case 'A': glyph = Glyph.Alpha; break;
-                    case 'B': glyph = Glyph.Beta; break;
-                    case 'G': glyph = Glyph.Gamma; break;
-                    case 'D': glyph = Glyph.Delta; break;
-                    case 'E': glyph = Glyph.Epsilon; break;
-                    case 'Z': glyph = Glyph.Zeta; break;
-                    case 'H': glyph = Glyph.Eta; break;
-                    case 'T': glyph = Glyph.Theta; break;
-                }
+                    'A' => Glyph.Alpha,
+                    'B' => Glyph.Beta,
+                    'G' => Glyph.Gamma,
+                    'D' => Glyph.Delta,
+                    'E' => Glyph.Epsilon,
+                    'Z' => Glyph.Zeta,
+                    'H' => Glyph.Eta,
+                    'T' => Glyph.Theta,
+                    'O' => Glyph.Omicron,
+                    _ => glyph
+                };
             }
             return glyph;
         }
 
-        private static readonly RegexDictionary<Glyph> s_baseGlyphTable = new GlobDictionary<Glyph> {
+        private static ThreadLocal<RegexMap<Glyph>> s_baseGlyphTable = new ThreadLocal<RegexMap<Glyph>>(() =>
+            new GlobMap<Glyph> {
             { "*.C", new Glyph(Glyph.StarStar, bias:GlyphBias.Bottom) }, // Vargr Corsair Base
             { "Im.D", new Glyph(Glyph.Square, bias:GlyphBias.Bottom) }, // Imperial Depot
             { "*.D", new Glyph(Glyph.Square, highlight:true)}, // Depot
@@ -269,15 +294,12 @@ namespace Maps.Rendering
             { "Zh.Z", Glyph.Diamond }, // Zhodani Base (Special case for "Zh.KM")
             { "*.*", Glyph.Circle }, // Independent Base
             // For TNE
-            { "Sc.H", Glyph.HiverSupplyBase }, // Hiver Supply Base  
-            { "*.I", Glyph.Interface }, // Interface 
-            { "*.T", Glyph.Terminus }, // Terminus 
-        };
+            { "Sc.H", Glyph.HiverSupplyBase }, // Hiver Supply Base
+            { "*.I", Glyph.Interface }, // Interface
+            { "*.T", Glyph.Terminus }, // Terminus
+        });
 
-        public static Glyph FromBaseCode(string allegiance, char code)
-        {
-            return s_baseGlyphTable.Match(allegiance + "." + code);
-        }
+        public static Glyph FromBaseCode(string allegiance, char code) => s_baseGlyphTable.Value.Match(allegiance + "." + code);
     }
 
     // BorderPath is a render-ready representation of a Border.
@@ -307,8 +329,7 @@ namespace Maps.Rendering
 
         public BorderPath(Border border, Sector sector, PathUtil.PathType type)
         {
-            float[] edgeX, edgeY;
-            RenderUtil.HexEdges(type, out edgeX, out edgeY);
+            RenderUtil.HexEdges(type, out float[] edgeX, out float[] edgeY);
 
             int lengthEstimate = border.Path.Count() * 3;
 
@@ -390,11 +411,18 @@ namespace Maps.Rendering
                     }
 
                 }
-                i = i % 6;
+                i %= 6;
                 // i is the direction to the next border hex,
                 // and when we get there, we'll have come from
                 // i + 3, so we start checking with i + 4.
                 checkFirst = (i + 4) % 6;
+            }
+
+            if (points.First() == points.Last())
+            {
+                int c = points.Count;
+                points.RemoveAt(c - 1);
+                types.RemoveAt(c - 1);
             }
 
             types[types.Count - 1] |= (byte)PathPointType.CloseSubpath;
@@ -417,7 +445,7 @@ namespace Maps.Rendering
                     last.AddLast(point);
             }
 
-            this.curves = segments.Select(c =>
+            curves = segments.Select(c =>
             {
                 if (c.First() == c.Last())
                 {
@@ -432,60 +460,6 @@ namespace Maps.Rendering
         }
     }
 
-    internal static class ColorUtil
-    {
-        public static void RGBtoXYZ(int r, int g, int b, out double x, out double y, out double z)
-        {
-            double rl = (double)r / 255.0;
-            double gl = (double)g / 255.0;
-            double bl = (double)b / 255.0;
-
-            double sr = (rl > 0.04045) ? Math.Pow((rl + 0.055) / (1 + 0.055), 2.2) : (rl / 12.92);
-            double sg = (gl > 0.04045) ? Math.Pow((gl + 0.055) / (1 + 0.055), 2.2) : (gl / 12.92);
-            double sb = (bl > 0.04045) ? Math.Pow((bl + 0.055) / (1 + 0.055), 2.2) : (bl / 12.92);
-
-            x = sr * 0.4124 + sg * 0.3576 + sb * 0.1805;
-            y = sr * 0.2126 + sg * 0.7152 + sb * 0.0722;
-            z = sr * 0.0193 + sg * 0.1192 + sb * 0.9505;
-        }
-
-        private static double Fxyz(double t)
-        {
-            return ((t > 0.008856) ? Math.Pow(t, (1.0 / 3.0)) : (7.787 * t + 16.0 / 116.0));
-        }
-
-        public static void XYZtoLab(double x, double y, double z, out double l, out double a, out double b)
-        {
-            const double D65X = 0.9505, D65Y = 1.0, D65Z = 1.0890;
-            l = 116.0 * Fxyz(y / D65Y) - 16;
-            a = 500.0 * (Fxyz(x / D65X) - Fxyz(y / D65Y));
-            b = 200.0 * (Fxyz(y / D65Y) - Fxyz(z / D65Z));
-        }
-
-        public static double DeltaE76(double l1, double a1, double b1, double l2, double a2, double b2)
-        {
-            double c1 = l1 - l2, c2 = a1 - a2, c3 = b1 - b2;
-            return Math.Sqrt(c1 * c1 + c2 * c2 + c3 * c3);
-        }
-
-        public static bool NoticeableDifference(Color a, Color b)
-        {
-            const double JND = 2.3;
-
-            double ax, ay, az;
-            double bx, by, bz;
-            RGBtoXYZ(a.R, a.G, a.B, out ax, out ay, out az);
-            RGBtoXYZ(b.R, b.G, b.B, out bx, out by, out bz);
-
-            double al, aa, ab;
-            double bl, ba, bb;
-            XYZtoLab(ax, ay, az, out al, out aa, out ab);
-            XYZtoLab(bx, by, bz, out bl, out ba, out bb);
-
-            return DeltaE76(al, aa, ab, bl, ba, bb) > JND;
-        }
-
-    }
     internal static class PathUtil
     {
         public enum PathType : int
@@ -539,15 +513,12 @@ namespace Maps.Rendering
             // Algorithm based on http://dotclue.org/t20/sec2pdf - J Greely rocks my world.
 
             int checkFirst = 0;
-            int checkLast = 5;
-
-            Point startHex = Point.Empty; ;
+            Point startHex = Point.Empty;
             bool startHexVisited = false;
 
             foreach (Point hex in clip)
             {
-                checkLast = checkFirst + 5;
-
+                int checkLast = checkFirst + 5;
                 if (startHexVisited && hex == startHex)
                 {
                     // I'm in the starting hex, and I've been
@@ -591,7 +562,7 @@ namespace Maps.Rendering
                     clipPathPoints.Add(newPoint);
                     clipPathTypes.Add((byte)PathPointType.Line);
                 }
-                i = i % 6;
+                i %= 6;
 
                 // i is the direction to the next border hex,
                 // and when we get there, we'll have come from
@@ -604,11 +575,48 @@ namespace Maps.Rendering
             clipPathPointTypes[clipPathPointTypes.Length - 1] |= (byte)PathPointType.CloseSubpath;
         }
     }
+    internal class ClipPath
+    {
+        public readonly PointF[] clipPathPoints;
+        public readonly byte[] clipPathPointTypes;
+        public readonly RectangleF bounds;
+
+        public ClipPath(Rectangle bounds, PathUtil.PathType borderPathType)
+        {
+            RenderUtil.HexEdges(borderPathType, out float[] edgex, out float[] edgey);
+
+            IEnumerable<Hex> hexes =
+                Util.Sequence(1, Astrometrics.SectorWidth).Select(x => new Hex((byte)x, 1))
+                .Concat(Util.Sequence(2, Astrometrics.SectorHeight).Select(y => new Hex(Astrometrics.SectorWidth, (byte)y)))
+                .Concat(Util.Sequence(Astrometrics.SectorWidth - 1, 1).Select(x => new Hex((byte)x, Astrometrics.SectorHeight)))
+                .Concat(Util.Sequence(Astrometrics.SectorHeight - 1, 1).Select(y => new Hex(1, (byte)y)));
+
+            IEnumerable<Point> points = (from hex in hexes select new Point(hex.X + bounds.X, hex.Y + bounds.Y)).ToList();
+            PathUtil.ComputeBorderPath(points, edgex, edgey, out clipPathPoints, out clipPathPointTypes);
+
+            PointF min = clipPathPoints[0];
+            PointF max = clipPathPoints[0];
+            for (int i = 1; i < clipPathPoints.Length; ++i)
+            {
+                PointF pt = clipPathPoints[i];
+                if (pt.X < min.X)
+                    min.X = pt.X;
+                if (pt.Y < min.Y)
+                    min.Y = pt.Y;
+                if (pt.X > max.X)
+                    max.X = pt.X;
+                if (pt.Y > max.Y)
+                    max.Y = pt.Y;
+            }
+            this.bounds = new RectangleF(min, new SizeF(max.X - min.X, max.Y - min.Y));
+        }
+    }
+
 
     #region Stellar Rendering
     internal struct StarProps
     {
-        public StarProps(Color color, Color border, float radius) { this.color = color; this.borderColor = border; this.radius = radius; }
+        public StarProps(Color color, Color border, float radius) { this.color = color; borderColor = border; this.radius = radius; }
         public Color color;
         public Color borderColor;
         public float radius;
@@ -616,71 +624,63 @@ namespace Maps.Rendering
 
     internal static class StellarRendering
     {
-        // Match a single non-degenerate star.
-        private static Regex STAR_REGEX = new Regex(@"^([OBAFGKM])([0-9]) ?(Ia|Ib|II|III|IV|V)$",
-                RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
         // Additions to radius based on luminosity.
-        private static Dictionary<string, float> LUM = new Dictionary<string, float>
-            {
+        private static ThreadLocal<IReadOnlyDictionary<string, float>> LUM = new ThreadLocal<IReadOnlyDictionary<string, float>>(() =>
+            new Dictionary<string, float> {
                 { "Ia", 7 },
                 { "Ib", 5 },
                 { "II", 3 },
                 { "III", 2 },
                 { "IV", 1 },
                 { "V", 0 }
-            };
+            });
 
         // Base radius for spectral class.
-        private static Dictionary<string, float> RAD = new Dictionary<string, float>
-            { { "O", 4 }, { "B", 3 }, { "A", 2 }, { "F", 1.5f }, { "G", 1 }, { "K", 0.7f }, { "M", 0.5f } };
+        private static ThreadLocal<IReadOnlyDictionary<char, float>> RAD = new ThreadLocal<IReadOnlyDictionary<char, float>>(() =>
+            new Dictionary<char, float> { 
+                { 'O', 4 }, { 'B', 3 }, { 'A', 2 }, { 'F', 1.5f }, { 'G', 1 }, { 'K', 0.7f }, { 'M', 0.5f }
+            });
 
         // Maps spectral class to color.
-        private static Dictionary<string, Color> COLOR = new Dictionary<string, Color> {
-                { "O", Color.FromArgb(0x9d, 0xb4, 0xff) },
-                { "B", Color.FromArgb(0xbb, 0xcc, 0xff) },
-                { "A", Color.FromArgb(0xfb, 0xf8, 0xff) },
-                { "F", Color.FromArgb(0xff, 0xff, 0xed) },
-                { "G", Color.FromArgb(0xff, 0xff, 0x00) },
-                { "K", Color.FromArgb(0xff, 0x98, 0x33) },
-                { "M", Color.FromArgb(0xff, 0x00, 0x00) },
-            };
+        private static ThreadLocal<IReadOnlyDictionary<char, Color>> COLOR = new ThreadLocal<IReadOnlyDictionary<char, Color>>(() =>
+            new Dictionary<char, Color> {
+                { 'O', Color.FromArgb(0x9d, 0xb4, 0xff) },
+                { 'B', Color.FromArgb(0xbb, 0xcc, 0xff) },
+                { 'A', Color.FromArgb(0xfb, 0xf8, 0xff) },
+                { 'F', Color.FromArgb(0xff, 0xff, 0xed) },
+                { 'G', Color.FromArgb(0xff, 0xff, 0x00) },
+                { 'K', Color.FromArgb(0xff, 0x98, 0x33) },
+                { 'M', Color.FromArgb(0xff, 0x00, 0x00) },
+            });
 
-        public static StarProps star2props(string star)
+        public static StarProps StarToProps(StellarData.Star star)
         {
-            Match m = STAR_REGEX.Match(star);
-            if (m.Success)
-            {
-                string c = m.Groups[1].Value;
-                //string f = m.Groups[2].Value;
-                string l = m.Groups[3].Value;
-                return new StarProps(COLOR[c], Color.Black, RAD[c] + LUM[l]);
-            }
-            else if (star == "BH")
-            {
-                return new StarProps(Color.Black, Color.White, 0.8f);
-            }
-            else if (star == "BD")
-            {
-                return new StarProps(Color.Brown, Color.Black, 0.3f);
-            }
-            else
-            {
-                // Assume white dwarf
+            if (star.classification == "D")
                 return new StarProps(Color.White, Color.Black, 0.3f);
-            }
+
+            // TODO: Distinct rendering for black holes, neutron stars, pulsars
+            if (star.classification == "NS" || star.classification == "PSR" || star.classification == "BH")
+                return new StarProps(Color.Black, Color.White, 0.8f);
+
+            if (star.classification == "BD")
+                return new StarProps(Color.Brown, Color.Black, 0.3f);
+
+            return new StarProps(COLOR.Value[star.type], Color.Black, RAD.Value[star.type] + LUM.Value[star.luminosity ?? "V"]);
         }
 
-        private static float sinf(double r) { return (float)Math.Sin(r); }
-        private static float cosf(double r) { return (float)Math.Cos(r); }
+        private static float SinF(double r) => (float)Math.Sin(r);
+        private static float CosF(double r) => (float)Math.Cos(r);
+
         private static float[] dx = new float[] {
                     0.0f,
-                    cosf(Math.PI * 1 / 3),cosf(Math.PI * 2 / 3),cosf(Math.PI * 3 / 3),
-                    cosf(Math.PI * 4 / 3),cosf(Math.PI * 5 / 3),cosf(Math.PI * 6 / 3) };
+                    CosF(Math.PI * 1 / 3), CosF(Math.PI * 2 / 3), CosF(Math.PI * 3 / 3),
+                    CosF(Math.PI * 4 / 3), CosF(Math.PI * 5 / 3), CosF(Math.PI * 6 / 3)
+        };
         private static float[] dy = new float[] {
                     0.0f,
-                    sinf(Math.PI * 1 / 3),sinf(Math.PI * 2 / 3),sinf(Math.PI * 3 / 3),
-                    sinf(Math.PI * 4 / 3),sinf(Math.PI * 5 / 3),sinf(Math.PI * 6 / 3) };
+                    SinF(Math.PI * 1 / 3), SinF(Math.PI * 2 / 3), SinF(Math.PI * 3 / 3),
+                    SinF(Math.PI * 4 / 3), SinF(Math.PI * 5 / 3), SinF(Math.PI * 6 / 3)
+        };
         public static PointF Offset(int index)
         {
             if (index >= dx.Length)

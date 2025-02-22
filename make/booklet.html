@@ -1,14 +1,13 @@
-<!DOCTYPE html>
-<html mozNoMarginBoxes>
+﻿<!DOCTYPE html>
+<html>
 <title>Sector Booklet - Traveller Map</title>
 <meta charset="utf-8">
-<link rel="shortcut icon" href="../favicon.ico">
-<link rel="stylesheet" href="../site.css?update=2016-10-16">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.5/handlebars.min.js"></script>
-<script src="https://cdn.rawgit.com/inexorabletash/polyfill/v0.1.29/polyfill.min.js"></script>
-<script src="../map.js?update=2017-01-31"></script>
-<script src="post.js?update=2016-10-15"></script>
-<script src="booklet.js?update=2017-02-03"></script>
+<link rel="shortcut icon" href="../favicon.svg">
+<link rel="stylesheet" href="../site.css?update=2023-08-08T08:43:58">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.7.8/handlebars.min.js"></script>
+<script src="../map.js?update=2023-08-08T08:43:57"></script>
+<script src="post.js?update=2023-09-13T19:20:48"></script>
+<script src="booklet.js?update=2023-08-08T08:43:57"></script>
 <style>
 @import url(https://fonts.googleapis.com/css?family=Marcellus|PT+Sans+Narrow);
 
@@ -199,6 +198,7 @@ th, td {
   padding: 0.25in 0.5in;
 }
 .sector-image {
+  display: block;
   border: solid 4px black;
   width: 9.5in;
 }
@@ -234,12 +234,6 @@ th, td {
   height: 8.25in;
   float: left;
 }
-.subsector-image {
-  padding: 4px;
-}
-.subsector-image > img {
-  border: solid 4px black;
-}
 .subsector-body {
   text-align: left;
   white-space: normal;
@@ -249,7 +243,7 @@ th, td {
   font-size: 9pt;
 }
 .dense table.uwp-data {
-  font-size: 8pt;
+  font-size: 7pt;
 }
 
 table.uwp-data {
@@ -281,47 +275,42 @@ table.uwp-data {
 .style-classic .world-nobility,
 .style-classic .world-worlds { display: none; }
 
-td.neighbor {
-  text-align: center;
-  font-weight: bold;
-  text-transform: uppercase;
-  padding: 0;
-  white-space: nowrap;
-  line-height: 9pt;
-  font-size: 11pt;
-}
-td.vertical {
-  width: 1.25em;
-  max-width: 1.25em;
-}
-.rotate90 {
-  display: inline-block;
-  padding: 0;
-  margin: 0;
-  transform: translateX(-50%) rotate(90deg) translateY(-4pt);
-  -webkit-transform: translateX(-50%) rotate(90deg) translateY(-4pt);
-  -moz-transform: translateX(-50%) rotate(90deg) translateX(-4pt);
-  -o-transform: translateX(-50%) rotate(90deg) translateX(-4pt);
-}
-.rotate180 {
-  display: inline-block;
-  padding: 0;
-  margin: 0;
-  transform: rotate(180deg);
-  -webkit-transform: rotate(180deg);
-  -moz-transform: rotate(180deg);
-  -o-transform: rotate(180deg);
-}
-.rotate270 {
-  display: inline-block;
-  padding: 0;
-  margin: 0;
-  transform: translateX(-50%) rotate(270deg) translateY(10pt);
-  -webkit-transform: translateX(-50%) rotate(270deg) translateY(10pt);
-  -moz-transform: translateX(-50%) rotate(270deg) translateY(10pt);
-  -o-transform: translateX(-50%) rotate(270deg) translateY(10pt);
+.subsector-image,
+.subsector-image-border {
+  position: absolute;
+  border: solid 6px black;
+  width: 471px;
+  height: 684px;
 }
 
+.subsector-image {
+  display: block;
+  left: 20px;
+  top: 20px;
+  padding: 0;
+}
+.subsector-image-border {
+  left: 5px;
+  top: 5px;
+  padding: 15px;
+}
+.neighbor {
+  position: absolute;
+  width: 280px;
+  height: 15px;
+  padding: 2px;
+  background-color: white;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-size: 12pt;
+  line-height: 9pt;
+  font-weight: bold;
+}
+.neighbor-c { left:  109px; top:    -14px; transform: rotate(180deg); }
+.neighbor-r { left:  109px; bottom: -14px; }
+.neighbor-t { right: -14px; top: 347px; transform: translateX(50%) rotate(270deg) translateY(-50%); }
+.neighbor-s { left:  -14px; top: 347px; transform: translateX(-50%) rotate(90deg) translateY(-50%); }
 
 .subsector_title {
   white-space: nowrap;
@@ -416,10 +405,10 @@ td.vertical {
   text-align: center;
   vertical-align: text-bottom;
 }
-.legend .highlight { color: red; }
+.legend .highlight { color: #E32736; }
 .legend .glyph.water { color: #00bfff; }
-.legend .amberzone { color: yellow; }
-.legend .redzone { color: red; }
+.legend .amberzone { color: #FFCC00; }
+.legend .redzone { color: #E32736; }
 .legend .popname {
   display: inline-block;
   width: 0.75in;
@@ -505,28 +494,28 @@ table.subsector-list tr td:first-of-type {
   <div id="input">
     <h1>Booklet Maker &mdash; The Traveller Map</h1>
 
+    <form id="form" action="api/poster" method="post" enctype="application/x-www-form-urlencoded">
+
     <ol class="steps">
       <li>
         <select id="sector">
-          <option disabled>Select...</option>
+          <option selected disabled>Select...</option>
         </select>
         a sector, or enter custom sector data/metadata:
 
-    <form id="form" action="api/poster" method="post" enctype="application/x-www-form-urlencoded">
       <div>Sector Data:
-        (<a target="_blank" href="../doc/fileformats">file formats</a>)
+        (<a target=_blank rel=noopener href="../doc/fileformats">file formats</a>)
         &mdash;
-        <em>tip: <a target="_blank" href="../tools/lintsec.html">check your data</a> first</em>
+        <em>tip: <a target=_blank rel=noopener href="../tools/lintsec.html">check your data</a> first</em>
       </div>
       <textarea id="data" name="data" class="drag-n-drop"
                 spellcheck="false" wrap="off" cols="80" rows="10"></textarea>
 
       <div>Metadata:
-        (<a target="_blank" href="../doc/metadata">XML</a> or
-        <a target="_blank" href="http://dotclue.org/t20/">MSEC</a>)</div>
+        (<a target=_blank rel=noopener href="../doc/metadata">XML</a> or
+        <a target=_blank rel=noopener href="http://dotclue.org/t20/">MSEC</a>)</div>
       <textarea id="metadata" name="metadata" class="drag-n-drop"
             spellcheck="false" wrap="off" cols="80" rows="10"></textarea>
-    </form>
 
       </li>
       <li>
@@ -537,11 +526,26 @@ table.subsector-list tr td:first-of-type {
             <td>
               <table id="label_grid">
                 <tr>
-                  <td style="text-align: right">Style:</td>
+                  <td style="text-align: right">Data Style:</td>
                   <td>
-                    <select id="style" name="style">
+                    <select id="data-style" name="data-style">
                       <option selected value="t5">Traveller 5 (with Ix/Ex/Cx/etc)</option>
                       <option value="classic">Classic Traveller (fewer fields)</option>
+                    </select>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align: right">Map Style:</td>
+                  <td>
+                    <select name="map-style">
+                      <option value="poster">Black background (Color)</option>
+                      <option value="print" selected>White background (Color)</option>
+                      <option value="atlas">White background (B&amp;W)</option>
+                      <option value="candy">Eye candy</option>
+                      <option value="draft">Draft</option>
+                      <option value="fasa">FASA</option>
+                      <option value="mongoose">Mongoose</option>
+                      <option value="terminal">Terminal</option>
                     </select>
                   </td>
                 </tr>
@@ -552,15 +556,14 @@ table.subsector-list tr td:first-of-type {
       </li>
       <li>
         Click
-    <!-- TODO: Add preview? -->
-    <button id="compose">Compose Booklet</button>
+        <!-- TODO: Add preview? -->
+        <button id="compose">Compose Booklet</button>
       </li>
     </ol>
+    </form>
     <div style="margin-top: 10px; font-size: 80%">
-      The <em class="product">Traveller</em> game in all forms is owned by Far
-      Future Enterprises. Copyright &copy; 1977 &ndash; 2017 Far Future
-      Enterprises.
-      <a href="http://farfuture.net/FFEFairUsePolicy2008.pdf">Fair Use Policy</a>
+      The <em class="product">Traveller</em> game in all forms is owned by Mongoose Publishing. Copyright 1977 &ndash; 2024 Mongoose Publishing.
+      <a href="https://cdn.shopify.com/s/files/1/0609/6139/0839/files/Traveller_Fair_Use_Policy_2024.pdf?v=1725357857">Fair Use Policy</a>
     </div>
   </div>
 
@@ -584,28 +587,14 @@ table.subsector-list tr td:first-of-type {
             <div class="title_adventure">Science-Fiction Adventure<br>in the Far Future</div>
           </div>
         </div>
-        <div class="title_publisher">Far Future Enterprises</div>
+        <div class="title_publisher">Mongoose Publishing</div>
       </div>
 
       <!-- Right: Copyright and Credits -->
       <div class="page-half title-page-right">
         <div class="align-bottom credits">
           <p>
-            The <b><i>TRAVELLER</i></b> game in all forms is owned
-            by Far Future Enterprises. Copyright &copy; 1977 &ndash; 2017
-            Far Future Enterprises. <b><i>TRAVELLER</i></b> is a
-            registered trademark of Far Future Enterprises. Far
-            Future permits web sites and fanzines for this game,
-            provided it contains this notice, that Far Future is
-            notified, and subject to a withdrawal of permission on
-            90 days notice. The contents of this site are for
-            personal, non-commercial use only. Any use of Far Future
-            Enterprises's copyrighted material or trademarks
-            anywhere on this web site and its files should not be
-            viewed as a challenge to those copyrights or
-            trademarks. In addition, any program/articles/file on
-            this site cannot be republished or distributed without
-            the consent of the author who contributed it.
+            The <b><i>Traveller</i></b> game in all forms is owned by Mongoose Publishing. Copyright 1977 &ndash; 2024 Mongoose Publishing. Traveller is a registered trademark of Mongoose Publishing. Mongoose Publishing permits web sites and fanzines for this game, provided it contains this notice, that Mongoose Publishing is notified, and subject to a withdrawal of permission on 90 days notice. The contents of this site are for personal, non-commercial use only. Any use of Mongoose Publishing’s copyrighted material or trademarks anywhere on this web site and its files should not be viewed as a challenge to those copyrights or trademarks. In addition, any program/articles/file on this site cannot be republished or distributed without the consent of the author who contributed it.
           </p>
 
           {{#metadata}}
@@ -720,21 +709,15 @@ table.subsector-list tr td:first-of-type {
       <!-- Right: Image -->
       <div class="page-half ss-page-right">
         <div class="content">
-
-          <table>
-            <tr>
-              <td>
-              <td class="neighbor" colspan="1">{{neighbor.[0]}}
-              <td>
-            <tr>
-              <td class="neighbor vertical"><div class="rotate270">{{neighbor.[3]}}</div>
-              <td class="subsector-image"><img src="{{img_src}}" alt="" class="subsector-image">
-              <td class="neighbor vertical"><div class="rotate90">{{neighbor.[1]}}</div>
-            <tr>
-              <td>
-              <td class="neighbor" colspan="1"><div class="rotate180">{{neighbor.[2]}}</div>
-              <td>
-          </table>
+          <div style="position: relative; margin: 2px;">
+            <img class="subsector-image" src="{{img_src}}" alt="">
+            <div class="subsector-image-border">
+            <div class="neighbor neighbor-c">{{neighbor.[0]}}</div>
+            <div class="neighbor neighbor-t">{{neighbor.[1]}}</div>
+            <div class="neighbor neighbor-r">{{neighbor.[2]}}</div>
+            <div class="neighbor neighbor-s">{{neighbor.[3]}}</div>
+</div>
+          </div>
         </div>
       </div>
 
@@ -757,8 +740,8 @@ table.subsector-list tr td:first-of-type {
             <tr>
               <td>
                 <h4>Map Legend</h4>
-                <img src="../res/ui/Legend_1003_print.png"><br>
-                <img src="../res/ui/Legend_1006_print.png">
+                <img src="../res/ui/Legend_1003_print.svg"><br>
+                <img src="../res/ui/Legend_1006_print.svg">
               </td>
               <td>
                 <h4>World Characteristics</h4>
@@ -825,7 +808,7 @@ table.subsector-list tr td:first-of-type {
             <tr><td>Remarks</td><td>Trade codes and notes</td></tr>
             <tr><td>{Ix}</td><td>Importance Extension - world importance</td></tr>
             <tr><td>(Ex)</td><td>Economic Extension: Resources, Labor, Infrastructure, Efficiency</td></tr>
-            <tr><td>[Cx]</td><td>Cultural Extension: Homogeneity, Acceptance, Strangeness, Symbols</td></tr>
+            <tr><td>[Cx]</td><td>Cultural Extension: Heterogeneity, Acceptance, Strangeness, Symbols</td></tr>
             <tr><td>N</td><td>Nobility (Third Imperium)</td></tr>
             <tr><td>B</td><td>Bases</td></tr>
             <tr><td>Z</td><td>Travel Zone Classification</td></tr>

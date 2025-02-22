@@ -1,5 +1,8 @@
-﻿using Json;
+﻿#nullable enable
+using Json;
 using Maps.API.Results;
+using Maps.Search;
+using Maps.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,68 +15,62 @@ namespace Maps.API
 {
     internal class SearchHandler : DataHandlerBase
     {
-        protected override string ServiceName { get { return "search"; } }
-        protected override DataResponder GetResponder(HttpContext context)
-        {
-            return new Responder(context);
-        }
+        protected override DataResponder GetResponder(HttpContext context) => new Responder(context);
+
         private class Responder : DataResponder
         {
             public Responder(HttpContext context) : base(context) { }
-            public override string DefaultContentType { get { return System.Net.Mime.MediaTypeNames.Text.Xml; } }
+            public override string DefaultContentType => ContentTypes.Text.Xml;
 
-            private static readonly IReadOnlyDictionary<string, string> SpecialSearches = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase) {
-                { @"(default)", @"~/res/search/Default.json"},
-                { @"(grand tour)", @"~/res/search/GrandTour.json"},
-                { @"(arrival vengeance)", @"~/res/search/ArrivalVengeance.json"},
-                { @"(far frontiers)", @"~/res/search/FarFrontiers.json"},
-                { @"(cirque)", @"~/res/search/Cirque.json"}
-            };
+            private static readonly Regex SPECIAL_REGEXP = new Regex(@"\(([A-Za-z0-9 ]+)\)", RegexOptions.Compiled);
+            private static readonly Regex UWP_REGEXP = new Regex(@"^\w{7}-\w$", RegexOptions.Compiled);
 
-            private static readonly Regex UWP_REGEXP = new Regex(@"^\w{7}-\w$");
-
-            public override void Process()
+            public override void Process(ResourceManager resourceManager)
             {
                 string query = Context.Request.QueryString["q"];
                 if (query == null)
                     return;
 
                 // Look for special searches
-                if (SpecialSearches.ContainsKey(query))
+                var match = SPECIAL_REGEXP.Match(query);
+                if (match != null)
                 {
-                    string path = SpecialSearches[query];
-
-                    if (Context.Request.QueryString["jsonp"] != null)
-                    {
-                        // TODO: Does this include the JSONP headers?
-                        SendFile(JsonConstants.MediaType, path);
-                        return;
-                    }
-
-                    if (Accepts(Context, JsonConstants.MediaType))
+                    string path = $"~/res/search/{match.Groups[1].Value.Replace(" ", String.Empty)}.json";
+                    if (CheckFile(path) && ((Context.Request.QueryString["jsonp"] != null) || Accepts(Context, JsonConstants.MediaType)))
                     {
                         SendFile(JsonConstants.MediaType, path);
                         return;
                     }
-                    return;
                 }
 
                 //
                 // Do the search
                 //
-                ResourceManager resourceManager = new ResourceManager(Context.Server);
-                string milieu = GetStringOption("milieu", SectorMap.DEFAULT_MILIEU);
-                SectorMap.Milieu map = SectorMap.ForMilieu(resourceManager, milieu);
+                string? milieu = GetStringOption("milieu", SectorMap.DEFAULT_MILIEU);
+                SectorMap.Milieu map = SectorMap.ForMilieu(milieu);
 
                 int NUM_RESULTS;
-                IEnumerable<ItemLocation> searchResults;
+                IEnumerable<SearchResult> searchResults;
                 if (query == "(random world)")
                 {
                     NUM_RESULTS = 1;
-                    searchResults = SearchEngine.PerformSearch(milieu, null, SearchEngine.SearchResultsType.Worlds, NUM_RESULTS, random:true);
+                    searchResults = SearchEngine.PerformSearch(milieu, null, SearchEngine.SearchResultsType.Worlds, NUM_RESULTS, random: true);
                 }
                 else
                 {
+                    SearchEngine.SearchResultsType types = 0;
+                    foreach (var type in GetStringsOption("types", new string[] { "default" })!)
+                    {
+                        switch (type)
+                        {
+                            case "worlds": types |= SearchEngine.SearchResultsType.Worlds; break;
+                            case "subsectors": types |= SearchEngine.SearchResultsType.Subsectors; break;
+                            case "sectors": types |= SearchEngine.SearchResultsType.Sectors; break;
+                            case "labels": types |= SearchEngine.SearchResultsType.Labels; break;
+                            case "default": types |= SearchEngine.SearchResultsType.Default; break;
+                        }
+                    }
+
                     query = query.Replace('*', '%'); // Support * and % as wildcards
                     query = query.Replace('?', '_'); // Support ? and _ as wildcards
 
@@ -81,7 +78,7 @@ namespace Maps.API
                         query = "uwp:" + query;
 
                     NUM_RESULTS = 160;
-                    searchResults = SearchEngine.PerformSearch(milieu, query, SearchEngine.SearchResultsType.Default, NUM_RESULTS);
+                    searchResults = SearchEngine.PerformSearch(milieu, query, types, NUM_RESULTS);
                 }
 
                 SearchResults resultsList = new SearchResults();
@@ -89,13 +86,13 @@ namespace Maps.API
                 if (searchResults != null)
                 {
                     resultsList.AddRange(searchResults
-                        .Select(loc => SearchResults.LocationToSearchResult(map, resourceManager, loc))
+                        .Select(loc => SearchResults.SearchResultToItem(map, resourceManager, loc))
                         .OfType<SearchResults.Item>()
                         .OrderByDescending(item => item.Importance)
                         .Take(NUM_RESULTS));
                 }
 
-                SendResult(Context, resultsList);
+                SendResult(resultsList);
             }
         }
     }
@@ -103,12 +100,13 @@ namespace Maps.API
 
 namespace Maps.API.Results
 {
+#nullable disable
     [JsonName("Results")]
     [XmlRoot(ElementName = "results")]
     public class SearchResults
     {
         [XmlAttribute]
-        public int Count { get { return Items.Count; } set { /* We only want to serialize, not deserialize */ } }
+        public int Count { get => Items.Count; set { /* We only want to serialize, not deserialize */ } }
 
         // This is necessary to get "clean" XML serialization of a heterogeneous list;
         // otherwise the output is sprinkled with xsi:type declarations and the base class
@@ -192,89 +190,85 @@ namespace Maps.API.Results
             internal int? Importance { get; set; }
         }
 
-        internal static Item LocationToSearchResult(SectorMap.Milieu map, ResourceManager resourceManager, ItemLocation location)
+        internal static Item SearchResultToItem(SectorMap.Milieu map, ResourceManager resourceManager, SearchResult result)
         {
-            if (location is WorldLocation)
+            if (result is Search.WorldResult worldResult)
             {
-                Sector sector;
-                World world;
-                ((WorldLocation)location).Resolve(map, resourceManager, out sector, out world);
+                worldResult.Resolve(map, resourceManager, out Sector sector, out World world);
 
                 if (sector == null || world == null)
                     return null;
 
-                WorldResult r = new WorldResult();
-                r.SectorX = sector.X;
-                r.SectorY = sector.Y;
-                r.SectorTags = sector.TagString;
-                r.HexX = world.X;
-                r.HexY = world.Y;
-                r.Name = world.Name;
-                r.Sector = sector.Names[0].Text;
-                r.Uwp = world.UWP;
-                r.Importance = world.ImportanceValue;
-
-                return r;
+                return new WorldResult()
+                {
+                    SectorX = sector.X,
+                    SectorY = sector.Y,
+                    SectorTags = sector.TagString,
+                    HexX = world.X,
+                    HexY = world.Y,
+                    Name = world.Name,
+                    Sector = sector.Names[0].Text,
+                    Uwp = world.UWP,
+                    Importance = world.ImportanceValue
+                };
             }
 
-            if (location is SubsectorLocation)
+            if (result is Search.SubsectorResult subsectorResult)
             {
-                Sector sector;
-                Subsector subsector;
-                ((SubsectorLocation)location).Resolve(map, out sector, out subsector);
+                subsectorResult.Resolve(map, out Sector sector, out Subsector subsector);
 
                 if (sector == null || subsector == null)
                     return null;
 
-                SubsectorResult r = new SubsectorResult();
-                r.SectorX = sector.X;
-                r.SectorY = sector.Y;
-                r.SectorTags = sector.TagString;
-                r.Name = subsector.Name;
-                r.Index = subsector.Index;
-                r.Sector = sector.Names[0].Text;
-
-                return r;
+                return new SubsectorResult()
+                {
+                    SectorX = sector.X,
+                    SectorY = sector.Y,
+                    SectorTags = sector.TagString,
+                    Name = subsector.Name,
+                    Index = subsector.Index,
+                    Sector = sector.Names[0].Text
+                };
             }
 
-            if (location is SectorLocation)
+            if (result is Search.SectorResult sectorResult)
             {
-                Sector sector = ((SectorLocation)location).Resolve(map);
+                Sector sector = sectorResult.Resolve(map);
 
                 if (sector == null)
                     return null;
 
-                SectorResult r = new SectorResult();
-                r.SectorX = sector.X;
-                r.SectorY = sector.Y;
-                r.SectorTags = sector.TagString;
-                r.Name = sector.Names[0].Text;
-
-                return r;
+                return new SectorResult()
+                {
+                    SectorX = sector.X,
+                    SectorY = sector.Y,
+                    SectorTags = sector.TagString,
+                    Name = sector.Names[0].Text
+                };
             }
 
-            if (location is LabelLocation)
+            if (result is Search.LabelResult label)
             {
-                LabelLocation label = location as LabelLocation;
                 Location l = Astrometrics.CoordinatesToLocation(label.Coords);
                 Sector sector = label.Resolve(map);
 
-                LabelResult r = new LabelResult();
-                r.Name = label.Label;
-                r.SectorX = l.Sector.X;
-                r.SectorY = l.Sector.Y;
-                r.HexX = l.Hex.X;
-                r.HexY = l.Hex.Y;
-                r.Scale =
-                    label.Radius > 80 ? 4 :
-                    label.Radius > 40 ? 8 :
-                    label.Radius > 20 ? 32 : 64;
-                r.SectorTags = sector.TagString;
-
-                return r;
+                return new LabelResult()
+                {
+                    Name = label.Label,
+                    SectorX = l.Sector.X,
+                    SectorY = l.Sector.Y,
+                    HexX = l.Hex.X,
+                    HexY = l.Hex.Y,
+                    Scale =
+                        label.Radius > 80 ? 4 :
+                        label.Radius > 40 ? 8 :
+                        label.Radius > 20 ? 32 : 64,
+                    SectorTags = sector?.TagString
+                };
             }
 
-            throw new ArgumentException($"Unexpected result type: {location.GetType().Name}", nameof(location));
+            throw new ArgumentException($"Unexpected result type: {result.GetType().Name}", nameof(result));
         }
     }
+#nullable restore
 }

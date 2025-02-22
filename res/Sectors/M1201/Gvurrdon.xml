@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<Sector Abbreviation="Gvur" Tags="Official">
+<Sector Abbreviation="Gvur" Tags="Unreviewed">
   <Y>-2</Y>
   <X>-4</X>
   <Name Lang="va">Gvurrdon</Name>
@@ -10,13 +10,12 @@
              <b>Gvurrdon</b> sector was designed by J. Andrew Keith,
              Marc W. Miller and John Harshman and appears in
              <cite>Alien Module 3: Vargr</cite> (GDW, 1984).
-             
+
              M1200 data from Gvurrdon Sector Campaign Book by Roger Malmstein
 
     ]]>
   </Credits>
-  <Product Publisher="Mongoose Publishing" Author="Simon Beal" Title="Alien Module 2: Vargr" Ref="http://www.mongoosepublishing.com/alien-module-2-vargr.html"/>
-  <DataFile Source="Traveller 5 Second Survey" Author="J. Andrew Keith, Marc Miller and John Harshman" Milieu="M1201" Type="TabDelimited">Gvurrdon.tab</DataFile>
+  <Product Publisher="Mongoose Publishing" Author="Simon Beal" Title="Alien Module 2: Vargr" Ref="https://www.mongoosepublishing.com/products/alien-module-2-vargr-1"/>
   <Subsectors>
     <Subsector Index="A" Author="Roger Myhre" Publisher="HIWG" Ref="http://traveller.mu.org/archive/HIWG/Gvurdon/6F01.TXT">Ongvos</Subsector>
     <Subsector Index="B" Author="Roger Myhre" Publisher="HIWG" Ref="http://traveller.mu.org/archive/HIWG/Gvurdon/6F01.TXT">Zoghz</Subsector>
@@ -51,7 +50,6 @@
     <Allegiance Code="Vf">Ongue Republic</Allegiance>
     <Allegiance Code="Vg">Allez</Allegiance>
     <Allegiance Code="Wi">Wilds</Allegiance>
-    <Allegiance Code="">Barren</Allegiance>
   </Allegiances>
 
 
